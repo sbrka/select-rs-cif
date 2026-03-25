@@ -124,6 +124,12 @@
     .fn b { color:var(--slate); }
 
     hr.sep { border:none; border-top:1px solid var(--border); margin:7px 0; }
+    /* ── Expandable sections ── */
+    .xbtn { width:100%; padding:8px 12px; border:1px solid var(--border); border-radius:8px; background:var(--white); cursor:pointer; font-size:.8em; font-weight:600; color:var(--slate); display:flex; justify-content:space-between; align-items:center; transition:all .15s; text-align:left; }
+    .xbtn:hover { border-color:var(--navy); color:var(--navy); }
+    .xcontent { display:none; margin-top:8px; }
+    .xcontent.open { display:block; }
+
     @media(max-width:740px){ .page{grid-template-columns:1fr;} }
   </style>
 </head>
@@ -193,8 +199,10 @@
     </div>
 
     <div class="card">
-      <div class="clabel">⑤ Applicable Prognostic Score</div>
-      <div id="scorePanel"></div>
+      <button class="xbtn" onclick="toggleX('scorePanel','scoreArr')">
+        <span>⑤ Applicable Prognostic Score</span><span id="scoreArr">&#9660;</span>
+      </button>
+      <div class="xcontent" id="scorePanel"></div>
     </div>
 
   </div><!-- /sidebar -->
@@ -224,22 +232,26 @@
     </div>
 
     <div class="card" style="margin-top:12px;">
-      <div class="clabel">⑥ Individual Factors That May Modify the Effective Seizure-Day Window</div>
-      <p style="font-size:.77em;color:var(--slate);margin-bottom:5px;">
-        Patient characteristics shift the "effective" seizure day, moving recurrence risk earlier or later on the curve.
-        Qualitative indicators only — quantitative shift estimates in Supplementary Table S4.
-      </p>
-      <div id="modPanel"></div>
-      <div class="mleg">
-        <div class="mli"><div class="dsm" style="background:#2e7d32;"></div>p &lt; 0.01 (both models)</div>
-        <div class="mli"><div class="dsm" style="background:#66bb6a;"></div>p &lt; 0.05 (≥1 model)</div>
-        <div class="mli"><div class="dsm" style="background:#ffa726;"></div>Trend (p &lt; 0.10)</div>
-        <div class="mli"><div class="dsm" style="background:#b0bec5;"></div>Not significant</div>
-        <div class="mli" style="margin-left:auto;">
-          <span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:8px;font-size:.85em;font-weight:700;">→ Later</span>&ensp;higher risk
-        </div>
-        <div class="mli">
-          <span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:.85em;font-weight:700;">→ Earlier</span>&ensp;lower risk
+      <button class="xbtn" onclick="toggleX('modContent','modArr')">
+        <span>⑥ Individual Factors Modifying the Seizure-Day Window</span><span id="modArr">&#9660;</span>
+      </button>
+      <div class="xcontent" id="modContent">
+        <p style="font-size:.77em;color:var(--slate);margin:8px 0 5px;">
+          Patient characteristics shift the "effective" seizure day, moving recurrence risk earlier or later on the curve.
+          Qualitative indicators only — quantitative shift estimates in Supplementary Table S4.
+        </p>
+        <div id="modPanel"></div>
+        <div class="mleg">
+          <div class="mli"><div class="dsm" style="background:#2e7d32;"></div>p &lt; 0.01 (both models)</div>
+          <div class="mli"><div class="dsm" style="background:#66bb6a;"></div>p &lt; 0.05 (≥1 model)</div>
+          <div class="mli"><div class="dsm" style="background:#ffa726;"></div>Trend (p &lt; 0.10)</div>
+          <div class="mli"><div class="dsm" style="background:#b0bec5;"></div>Not significant</div>
+          <div class="mli" style="margin-left:auto;">
+            <span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:8px;font-size:.85em;font-weight:700;">→ Later</span>&ensp;higher risk
+          </div>
+          <div class="mli">
+            <span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:.85em;font-weight:700;">→ Earlier</span>&ensp;lower risk
+          </div>
         </div>
       </div>
     </div>
@@ -613,6 +625,12 @@ function onNum(v){
   updDay();updRisk();updWin();buildPlot();
 }
 
+
+function toggleX(id,arrId){
+  const el=document.getElementById(id);
+  const open=el.classList.toggle('open');
+  document.getElementById(arrId).innerHTML=open?'&#9650;':'&#9660;';
+}
 document.addEventListener("DOMContentLoaded",updAll);
 </script>
 </body>
