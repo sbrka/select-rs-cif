@@ -1,0 +1,7 @@
+# This repo tracks only the GitHub Pages files.
+# Everything else in this folder is local manuscript work.
+*
+!index.html
+!.gitignore
+!first_paper_draft_v1/
+!first_paper_draft_v1/SeLECT_RS_Figure3_Interactive_CIF.html

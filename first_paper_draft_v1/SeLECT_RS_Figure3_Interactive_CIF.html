@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeLECT-RS · Interactive Seizure Recurrence Risk Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.1/plotly.min.js"></script>
+  <style>
+    :root {
+      --navy:   #1b2a6b; --blue: #2c3e9e; --teal: #00838f;
+      --green:  #2e7d32; --amber: #e65100; --slate: #455a64; --muted: #78909c;
+      --light:  #eceff1; --bg: #f4f6fb; --white: #ffffff; --border: #dde3ea;
+      --is-col: #1565c0; --ich-col: #ad1457; --pt-col: #f57f17;
+      --acol: #0d47a1; --abg: #dbeeff;
+      --ucol: #4a3000; --ubg: #fff8e1;
+      --rcol: #6a0028; --rbg: #ffe8ef;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; background:var(--bg); color:#263238; font-size:14px; line-height:1.5; }
+
+    /* ── Header ── */
+    .hdr { background:linear-gradient(135deg,#1b2a6b 0%,#2c3e9e 60%,#00838f 100%); color:white; padding:14px 26px 12px; }
+    .hdr h1 { font-size:1.1em; font-weight:700; margin-bottom:2px; }
+    .hdr p  { font-size:0.73em; opacity:.8; font-style:italic; }
+    .chips  { display:flex; gap:12px; margin-top:7px; flex-wrap:wrap; }
+    .chip   { background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25); border-radius:20px; padding:2px 10px; font-size:.67em; font-weight:500; }
+
+    /* ── Layout ── */
+    .page { max-width:1140px; margin:0 auto; padding:14px 16px 26px; display:grid; grid-template-columns:290px 1fr; gap:14px; }
+
+    /* ── Cards ── */
+    .card { background:var(--white); border-radius:11px; padding:12px 14px; box-shadow:0 1px 6px rgba(0,0,0,.07); margin-bottom:11px; }
+    .card:last-child { margin-bottom:0; }
+    .clabel { font-size:.64em; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:9px; }
+
+    /* ── Et buttons ── */
+    .etrow { display:flex; gap:7px; }
+    .etbtn { flex:1; padding:8px 5px; border-radius:8px; border:2px solid var(--border); background:var(--light); cursor:pointer; font-size:.76em; font-weight:600; color:var(--slate); text-align:center; transition:all .15s; line-height:1.3; }
+    .etbtn:hover { border-color:var(--navy); color:var(--navy); }
+    .etbtn.ais  { background:#e3f2fd; border-color:var(--is-col); color:var(--is-col); }
+    .etbtn.aich { background:#fce4ec; border-color:var(--ich-col); color:var(--ich-col); }
+    .etbtn span.ab { font-size:1.3em; display:block; margin-bottom:1px; }
+    .etbtn span.nm { font-size:.8em; font-weight:400; display:block; }
+
+    /* ── Horizon slider ── */
+    .sl-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+    .sl-row span { font-size:.76em; color:var(--slate); }
+    .sl-val { font-size:1em!important; font-weight:700; color:var(--navy)!important; }
+    .sl-ends { display:flex; justify-content:space-between; font-size:.6em; color:var(--muted); margin-top:1px; }
+
+    /* ── Day display ── */
+    .daybig { text-align:center; font-size:2.3em; font-weight:900; color:var(--navy); line-height:1; margin:3px 0 2px; letter-spacing:-.02em; }
+    .daybig span { font-size:.4em; font-weight:500; color:var(--slate); vertical-align:middle; }
+    .dayctx { text-align:center; font-size:.71em; color:var(--muted); margin-bottom:4px; }
+    input[type=range]  { width:100%; accent-color:var(--navy); cursor:pointer; margin:3px 0 2px; }
+    .rlabs { display:flex; justify-content:space-between; font-size:.6em; color:var(--muted); margin-bottom:6px; }
+    .nrow  { display:flex; align-items:center; gap:5px; margin-top:3px; }
+    .nrow label { font-size:.7em; color:var(--muted); white-space:nowrap; }
+    input[type=number] { flex:1; padding:4px 6px; border:1px solid var(--border); border-radius:6px; font-size:.82em; background:#fafbfc; }
+
+    /* ── Risk box ── */
+    .rbox { border-radius:9px; padding:10px 12px; border:2px solid; text-align:center; transition:all .2s; margin-bottom:4px; }
+    .rpct { font-size:2.5em; font-weight:900; line-height:1; letter-spacing:-.02em; }
+    .rlbl { font-size:.7em; margin-top:4px; opacity:.85; font-weight:500; }
+    .rzne { font-size:.76em; font-weight:700; letter-spacing:.04em; margin-top:5px; padding:2px 10px; border-radius:12px; display:inline-block; }
+    .zlo { background:#e8f5e9; border-color:#43a047; color:var(--green); }
+    .zlo .rzne { background:#c8e6c9; color:var(--green); }
+    .zmd { background:#fff8e1; border-color:#ffa000; color:#5d3a00; }
+    .zmd .rzne { background:#ffe082; color:#5d3a00; }
+    .zhi { background:#fce4ec; border-color:#e91e63; color:#880e4f; }
+    .zhi .rzne { background:#f8bbd0; color:#880e4f; }
+
+    /* ── Window strip ── */
+    .wstrip { display:flex; border-radius:7px; overflow:hidden; font-size:.62em; font-weight:700; margin:7px 0 3px; }
+    .wseg   { padding:4px 4px; text-align:center; line-height:1.35; }
+    .wa { background:var(--abg); color:var(--acol); }
+    .wu { background:var(--ubg); color:var(--ucol); }
+    .wr { background:var(--rbg); color:var(--rcol); }
+    .whi { outline:2px solid var(--pt-col); outline-offset:-2px; }
+
+    /* ── Window key (below strip) ── */
+    .wkey { font-size:.63em; color:var(--muted); margin-top:4px; line-height:1.5; }
+    .wkey b { color:var(--slate); }
+
+    /* ── Score ── */
+    .sref { font-size:.7em; color:var(--slate); margin-top:5px; padding:5px 8px; background:#f5f7fc; border-radius:6px; border-left:3px solid var(--navy); line-height:1.5; }
+    .sref b { color:var(--navy); }
+    .xmod { font-size:.7em; color:#37474f; margin-top:4px; padding:4px 8px; background:#f0f4fb; border-radius:5px; border-left:3px solid #7986cb; line-height:1.5; }
+
+    /* ── Plot area ── */
+    .parea { background:var(--white); border-radius:11px; box-shadow:0 1px 6px rgba(0,0,0,.07); padding:13px 13px 9px; }
+    .ptitle { font-size:.9em; font-weight:700; color:var(--navy); margin-bottom:2px; }
+    .psub   { font-size:.7em; color:var(--muted); margin-bottom:7px; }
+    #cifPlot { width:100%; height:430px; }
+
+    /* ── Band row (log-proportional) ── */
+    .bwrap { margin:5px 0 7px; }
+    .brow  { display:flex; gap:0; border-radius:6px; overflow:hidden; font-size:.65em; font-weight:700; }
+    .bseg  { padding:4px 5px; text-align:center; line-height:1.3; }
+    .ba { background:var(--abg); color:var(--acol); }
+    .bu { background:var(--ubg); color:var(--ucol); }
+    .br { background:var(--rbg); color:var(--rcol); }
+
+    /* ── Modifiers ── */
+    .mhdr { font-size:.66em; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; margin:9px 0 3px; }
+    .mitem { display:flex; align-items:flex-start; gap:7px; padding:4px 0; border-bottom:1px solid #f0f2f5; }
+    .mitem:last-child { border-bottom:none; }
+    .mdot { width:8px; height:8px; border-radius:50%; margin-top:5px; flex-shrink:0; }
+    .sds{background:#2e7d32;} .ss{background:#66bb6a;} .str{background:#ffa726;} .sns{background:#b0bec5;}
+    .mname { font-size:.8em; color:#37474f; flex:1; }
+    .mdir  { font-size:.68em; font-weight:700; padding:1px 6px; border-radius:8px; white-space:nowrap; }
+    .dlater  { background:#fff3e0; color:#e65100; }
+    .dearlier{ background:#e8f5e9; color:var(--green); }
+    .mleg { display:flex; gap:9px; flex-wrap:wrap; margin-top:7px; }
+    .mli  { display:flex; align-items:center; gap:4px; font-size:.63em; color:var(--muted); }
+    .dsm  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+
+    /* ── Note box ── */
+    .notebox { font-size:.68em; background:#fff3e0; border:1px solid #ffcc80; border-radius:6px; padding:5px 9px; margin-top:6px; color:#5d3a00; line-height:1.5; }
+    .notebox b { color:#e65100; }
+
+    /* ── Footnote ── */
+    .fn { font-size:.65em; color:var(--muted); margin-top:9px; line-height:1.6; }
+    .fn b { color:var(--slate); }
+
+    hr.sep { border:none; border-top:1px solid var(--border); margin:7px 0; }
+    @media(max-width:740px){ .page{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>SeLECT-RS · Post-Stroke Seizure Recurrence Risk Explorer</h1>
+  <p>Competing-risk analysis (Fine-Gray, IPW-adjusted) · IS n = 1,010 · ICH n = 737 · Figure 3 companion · Schubert et al. 2026</p>
+  <div class="chips">
+    <span class="chip">SeLECT-RS Multicentre Cohort</span>
+    <span class="chip">IPW-adjusted cumulative incidence</span>
+    <span class="chip">Death as competing event</span>
+    <span class="chip">Windows: BIC bootstrap Q25 + 60% CIF threshold</span>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- ═ SIDEBAR ═ -->
+  <div>
+
+    <div class="card">
+      <div class="clabel">① Stroke Aetiology</div>
+      <div class="etrow">
+        <button class="etbtn ais" id="btn-IS" onclick="setET('IS')">
+          <span class="ab">IS</span><span class="nm">Ischaemic Stroke</span>
+        </button>
+        <button class="etbtn" id="btn-ICH" onclick="setET('ICH')">
+          <span class="ab">ICH</span><span class="nm">Intracerebral Haemorrhage</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="clabel">② Follow-up Time Horizon</div>
+      <div class="sl-row"><span>Time horizon</span><span class="sl-val" id="hzDisp">2 years</span></div>
+      <input type="range" id="hzSlider" min="1" max="40" value="8" step="1" oninput="onHz(this.value)">
+      <div class="sl-ends"><span>3 months</span><span>10 years</span></div>
+      <div class="fn" style="margin-top:6px;">
+        Cumulative incidence of seizure recurrence within the selected horizon, conditional on first
+        post-stroke seizure on the chosen day. Intermediate values linearly interpolated between model outputs.
+        <b>Window boundaries are fixed</b> — defined by the 10-year CIF regardless of the selected display horizon.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="clabel">③ Day of First Seizure after Stroke</div>
+      <div class="daybig" id="dayDisp">14 <span>days</span></div>
+      <div class="dayctx" id="dayCtx">2 weeks after stroke onset</div>
+      <input type="range" id="daySlider" min="0" max="1810" value="14" step="1" oninput="onSlider(this.value)">
+      <div class="rlabs"><span>Day 0</span><span>6 m</span><span>1 yr</span><span>3 yr</span><span>5 yr</span></div>
+      <div class="nrow">
+        <label>Custom (0–1810):</label>
+        <input type="number" id="dayNum" min="0" max="1810" value="14" oninput="onNum(this.value)">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="clabel">④ Seizure Recurrence Probability</div>
+      <div class="rbox zlo" id="riskBox">
+        <div class="rpct" id="rPct">—</div>
+        <div class="rlbl" id="rLbl">—</div>
+        <div class="rzne" id="rZne">—</div>
+      </div>
+      <div id="wStrip"></div>
+      <div class="wkey" id="wKey"></div>
+    </div>
+
+    <div class="card">
+      <div class="clabel">⑤ Applicable Prognostic Score</div>
+      <div id="scorePanel"></div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ═ MAIN ═ -->
+  <div>
+
+    <div class="parea">
+      <div class="ptitle" id="ptitle">Ischaemic Stroke · Seizure Recurrence Risk by Day of First Seizure (10-year horizon)</div>
+      <div class="psub">
+        Log-expanded early-time axis (log₁₀ scale) ·
+        Selected day highlighted <span style="color:var(--pt-col);font-size:1.1em;">●</span> ·
+        Window boundaries: <b style="color:var(--acol)">BIC bootstrap Q25</b> (acute→unclear) |
+        <b style="color:var(--rcol)">first 60% CIF crossing</b> (unclear→remote)
+      </div>
+      <div id="cifPlot"></div>
+      <div class="bwrap"><div class="brow" id="brow"></div></div>
+      <div class="fn">
+        <b>Window methodology:</b>
+        <b style="color:var(--acol)">Acute symptomatic</b> boundary = lower quartile (Q25) of BIC bootstrap distribution
+        (IS day 21; ICH day 13) — represents earliest statistically defensible seizure-timing cutoff.
+        <b style="color:var(--rcol)">Remote symptomatic</b> boundary = first upward crossing of the 60% recurrence probability
+        threshold at the <b>10-year horizon</b> — fixed reference regardless of the display horizon selected above.
+        <b style="color:var(--ucol)">Unclear window</b> = transition period where provoked vs. unprovoked classification is uncertain.
+        ·&ensp;<b>IS</b> = ischaemic stroke · <b>ICH</b> = intracerebral haemorrhage · 3-year values interpolated.
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <div class="clabel">⑥ Individual Factors That May Modify the Effective Seizure-Day Window</div>
+      <p style="font-size:.77em;color:var(--slate);margin-bottom:5px;">
+        Patient characteristics shift the "effective" seizure day, moving recurrence risk earlier or later on the curve.
+        Qualitative indicators only — quantitative shift estimates in Supplementary Table S4.
+      </p>
+      <div id="modPanel"></div>
+      <div class="mleg">
+        <div class="mli"><div class="dsm" style="background:#2e7d32;"></div>p &lt; 0.01 (both models)</div>
+        <div class="mli"><div class="dsm" style="background:#66bb6a;"></div>p &lt; 0.05 (≥1 model)</div>
+        <div class="mli"><div class="dsm" style="background:#ffa726;"></div>Trend (p &lt; 0.10)</div>
+        <div class="mli"><div class="dsm" style="background:#b0bec5;"></div>Not significant</div>
+        <div class="mli" style="margin-left:auto;">
+          <span style="background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:8px;font-size:.85em;font-weight:700;">→ Later</span>&ensp;higher risk
+        </div>
+        <div class="mli">
+          <span style="background:#e8f5e9;color:#2e7d32;padding:1px 6px;border-radius:8px;font-size:.85em;font-weight:700;">→ Earlier</span>&ensp;lower risk
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /page -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// CIF DATA — IS and ICH, 91 points, all time horizons
+// Source: D_CIF_IS / D_CIF_ICH, SeLECT_RS_extended_analyses.xlsx (20260319)
+// cif3y = interpolated: cif2y + (cif5y - cif2y) * (1/3)
+// ═══════════════════════════════════════════════════════════════════════════════
+const CIF = {
+  IS: {
+    days:   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,35,40,45,50,55,60,65,70,75,80,85,90,100,115,130,145,160,175,190,205,220,235,250,265,280,295,310,325,340,355,395,425,455,485,515,545,575,605,635,665,695,725,790,850,910,970,1030,1090,1150,1210,1270,1330,1390,1450,1510,1570,1630,1690,1750,1810],
+    cif1y:  [0.122486,0.092005,0.090546,0.094802,0.100966,0.107908,0.115178,0.122564,0.129954,0.137292,0.144545,0.151693,0.158724,0.165632,0.172411,0.179059,0.185577,0.191963,0.198220,0.204347,0.210349,0.216225,0.221980,0.227614,0.233131,0.238532,0.243822,0.249001,0.254072,0.259039,0.263903,0.286766,0.307404,0.326067,0.342975,0.358321,0.372271,0.384970,0.396547,0.407111,0.416761,0.425584,0.433654,0.447800,0.464838,0.477865,0.487732,0.495072,0.500364,0.503979,0.506205,0.507274,0.507369,0.506641,0.505213,0.503188,0.500656,0.497704,0.494409,0.490836,0.487036,0.476105,0.467417,0.458506,0.449499,0.440485,0.431531,0.422685,0.413983,0.405447,0.397097,0.388943,0.380993,0.364481,0.350106,0.336542,0.323755,0.311705,0.300349,0.289642,0.279543,0.270011,0.261007,0.252494,0.244438,0.236809,0.229577,0.222715,0.216198,0.210004,0.204110],
+    cif2y:  [0.157675,0.119044,0.117184,0.122606,0.130444,0.139251,0.148451,0.157773,0.167077,0.176289,0.185371,0.194299,0.203057,0.211639,0.220040,0.228258,0.236294,0.244149,0.251825,0.259325,0.266653,0.273812,0.280805,0.287637,0.294311,0.300832,0.307203,0.313427,0.319510,0.325454,0.331263,0.358406,0.382674,0.404427,0.423972,0.441575,0.457463,0.471831,0.484848,0.496659,0.507390,0.517152,0.526041,0.541527,0.560013,0.574024,0.584564,0.592363,0.597965,0.601780,0.604126,0.605250,0.605350,0.604584,0.603081,0.600947,0.598273,0.595151,0.591661,0.587866,0.583822,0.572138,0.562795,0.553164,0.543378,0.533534,0.523707,0.513950,0.504306,0.494803,0.485465,0.476307,0.467341,0.448605,0.432168,0.416554,0.401743,0.387704,0.374403,0.361801,0.349860,0.338540,0.327805,0.317618,0.307945,0.298753,0.290014,0.281698,0.273779,0.266232,0.259035],
+    cif3y:  [0.164808,0.124573,0.122634,0.128287,0.136456,0.145631,0.155210,0.164911,0.174585,0.184160,0.193593,0.202861,0.211948,0.220846,0.229551,0.238063,0.246381,0.254507,0.262443,0.270194,0.277762,0.285152,0.292368,0.299413,0.306293,0.313010,0.319570,0.325977,0.332234,0.338346,0.344316,0.372177,0.397034,0.419272,0.439217,0.457150,0.473310,0.487904,0.501107,0.513073,0.523932,0.533800,0.542777,0.558395,0.577003,0.591081,0.601656,0.609473,0.615082,0.618900,0.621247,0.622372,0.622472,0.621705,0.620202,0.618066,0.615390,0.612265,0.608769,0.604967,0.600913,0.589187,0.579801,0.570114,0.560260,0.550337,0.540421,0.530565,0.520812,0.511194,0.501732,0.492445,0.483345,0.464303,0.447570,0.431651,0.416530,0.402180,0.388568,0.375658,0.363412,0.351792,0.340763,0.330288,0.320334,0.310869,0.301863,0.293289,0.285118,0.277328,0.269894],
+    cif5y:  [0.179075,0.135631,0.133533,0.139649,0.148481,0.158392,0.168728,0.179185,0.189602,0.199901,0.210038,0.219985,0.229728,0.239259,0.248574,0.257672,0.266553,0.275222,0.283680,0.291931,0.299981,0.307833,0.315493,0.322966,0.330255,0.337367,0.344305,0.351075,0.357682,0.364130,0.370423,0.399718,0.425754,0.448961,0.469705,0.488298,0.505004,0.520049,0.533626,0.545901,0.557016,0.567097,0.576248,0.592130,0.610985,0.625196,0.635841,0.643692,0.649317,0.653141,0.655489,0.656614,0.656714,0.655948,0.654443,0.652306,0.649625,0.646493,0.642985,0.639168,0.635093,0.623287,0.613812,0.604013,0.594024,0.583943,0.573848,0.563794,0.553825,0.543975,0.534268,0.524723,0.515354,0.495698,0.478373,0.461845,0.446105,0.431132,0.416898,0.403370,0.390515,0.378295,0.366678,0.355628,0.345112,0.335101,0.325562,0.316470,0.307797,0.299519,0.291612],
+    cif10y: [0.190190,0.144292,0.142071,0.148543,0.157885,0.168359,0.179274,0.190306,0.201288,0.212135,0.222801,0.233259,0.243494,0.253497,0.263264,0.272797,0.282095,0.291162,0.300002,0.308619,0.317019,0.325206,0.333186,0.340965,0.348548,0.355941,0.363148,0.370176,0.377029,0.383712,0.390230,0.420515,0.447344,0.471188,0.492443,0.511445,0.528477,0.543783,0.557566,0.570004,0.581247,0.591426,0.600654,0.616634,0.635549,0.649765,0.660389,0.668210,0.673807,0.677608,0.679942,0.681059,0.681158,0.680397,0.678903,0.676778,0.674114,0.670998,0.667507,0.663705,0.659643,0.647857,0.638381,0.628563,0.618536,0.608402,0.598235,0.588093,0.578021,0.568054,0.558217,0.548531,0.539010,0.518994,0.501307,0.484395,0.468257,0.452875,0.438227,0.424283,0.411011,0.398378,0.386352,0.374898,0.363987,0.353586,0.343668,0.334204,0.325168,0.316537,0.308286]
+  },
+  ICH: {
+    days:   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,35,40,45,50,55,60,65,70,75,80,85,90,100,115,130,145,160,175,190,205,220,235,250,265,280,295,310,325,340,355,395,425,455,485,515,545,575,605,635,665,695,725,790,850,910,970,1030,1090,1150,1210,1270,1330,1390,1450,1510,1570,1630,1690,1750,1810],
+    cif1y:  [0.282443,0.144740,0.138746,0.155797,0.178621,0.202207,0.224292,0.243911,0.261282,0.276771,0.290668,0.303210,0.314585,0.324950,0.334435,0.343146,0.351175,0.358599,0.365482,0.371882,0.377847,0.383419,0.388635,0.393527,0.398124,0.402451,0.406530,0.410382,0.414024,0.417472,0.420740,0.434806,0.445902,0.454829,0.462125,0.468162,0.473209,0.477462,0.481071,0.484151,0.486790,0.489060,0.491017,0.494168,0.497466,0.499566,0.500842,0.501538,0.501814,0.501781,0.501520,0.501087,0.500525,0.499863,0.499122,0.498320,0.497469,0.496581,0.495663,0.494722,0.493764,0.491158,0.489182,0.487207,0.485244,0.483301,0.481383,0.479494,0.477637,0.475813,0.474023,0.472266,0.470544,0.466927,0.463724,0.460646,0.457685,0.454835,0.452090,0.449444,0.446890,0.444423,0.442039,0.439733,0.437499,0.435334,0.433235,0.431197,0.429218,0.427295,0.425424],
+    cif2y:  [0.332717,0.173509,0.166443,0.186514,0.213242,0.240691,0.266232,0.288789,0.308655,0.326282,0.342028,0.356179,0.368967,0.380579,0.391170,0.400869,0.409784,0.418004,0.425608,0.432662,0.439221,0.445337,0.451050,0.456400,0.461418,0.466133,0.470572,0.474757,0.478709,0.482445,0.485982,0.501155,0.513066,0.522611,0.530387,0.536803,0.542155,0.546656,0.550470,0.553720,0.556501,0.558891,0.560949,0.564261,0.567720,0.569921,0.571258,0.571986,0.572274,0.572241,0.571967,0.571514,0.570925,0.570232,0.569456,0.568616,0.567724,0.566792,0.565829,0.564841,0.563836,0.561098,0.559020,0.556940,0.554872,0.552823,0.550799,0.548805,0.546842,0.544912,0.543017,0.541156,0.539330,0.535492,0.532088,0.528812,0.525657,0.522617,0.519686,0.516857,0.514124,0.511482,0.508925,0.506450,0.504050,0.501723,0.499464,0.497270,0.495137,0.493063,0.491044],
+    cif3y:  [0.347917,0.182544,0.175155,0.196134,0.224019,0.252596,0.279128,0.302512,0.323068,0.341277,0.357518,0.372093,0.385248,0.397178,0.408048,0.417992,0.427122,0.435535,0.443310,0.450517,0.457215,0.463454,0.469280,0.474731,0.479841,0.484641,0.489157,0.493413,0.497429,0.501224,0.504817,0.520207,0.532269,0.541924,0.549779,0.556256,0.561654,0.566191,0.570034,0.573306,0.576106,0.578510,0.580581,0.583910,0.587388,0.589598,0.590941,0.591673,0.591962,0.591928,0.591654,0.591199,0.590607,0.589911,0.589132,0.588287,0.587391,0.586455,0.585487,0.584494,0.583483,0.580730,0.578639,0.576547,0.574465,0.572403,0.570365,0.568356,0.566378,0.564433,0.562523,0.560647,0.558805,0.554933,0.551497,0.548189,0.545002,0.541930,0.538966,0.536105,0.533340,0.530666,0.528078,0.525571,0.523141,0.520783,0.518493,0.516269,0.514106,0.512002,0.509953],
+    cif5y:  [0.378318,0.200614,0.192578,0.215373,0.245575,0.276406,0.304920,0.329959,0.351895,0.371267,0.388498,0.403922,0.417809,0.430376,0.441803,0.452237,0.461800,0.470597,0.478715,0.486228,0.493201,0.499689,0.505739,0.511393,0.516688,0.521657,0.526326,0.530723,0.534868,0.538783,0.542485,0.558311,0.570676,0.580548,0.588564,0.595161,0.600651,0.605261,0.609160,0.612477,0.615314,0.617748,0.619843,0.623209,0.626722,0.628954,0.630309,0.631046,0.631339,0.631304,0.631027,0.630568,0.629972,0.629269,0.628483,0.627631,0.626726,0.625780,0.624802,0.623800,0.622778,0.619994,0.617879,0.615761,0.613653,0.611562,0.609496,0.607458,0.605450,0.603476,0.601535,0.599628,0.597755,0.593814,0.590315,0.586942,0.583691,0.580554,0.577526,0.574601,0.571772,0.569035,0.566384,0.563814,0.561322,0.558902,0.556552,0.554267,0.552044,0.549880,0.547773],
+    cif10y: [0.442755,0.240775,0.231375,0.257983,0.292963,0.328340,0.360751,0.388961,0.413478,0.434970,0.453959,0.470853,0.485978,0.499594,0.511915,0.523114,0.533336,0.542702,0.551313,0.559255,0.566603,0.573418,0.579755,0.585661,0.591178,0.596342,0.601185,0.605734,0.610014,0.614048,0.617855,0.634052,0.646614,0.656584,0.664640,0.671243,0.676719,0.681304,0.685172,0.688456,0.691259,0.693660,0.695725,0.699036,0.702484,0.704671,0.705997,0.706718,0.707004,0.706971,0.706700,0.706251,0.705667,0.704980,0.704210,0.703374,0.702488,0.701560,0.700600,0.699616,0.698612,0.695873,0.693790,0.691700,0.689618,0.687551,0.685505,0.683484,0.681492,0.679530,0.677598,0.675699,0.673832,0.669897,0.666394,0.663013,0.659747,0.656590,0.653538,0.650584,0.647724,0.644952,0.642263,0.639653,0.637118,0.634654,0.632258,0.629925,0.627654,0.625440,0.623282]
+  }
+};
+
+// ── Window definitions ────────────────────────────────────────────────────────
+// Acute boundary: BIC bootstrap Q25 (earliest statistically defensible cutoff)
+// Remote boundary: first upward 60% CIF crossing at current time horizon
+const BIC_Q25 = { IS: 21, ICH: 13 };   // acute/unclear split day (first day of unclear)
+
+function cifKey(h){ return h===1?"cif1y":h===2?"cif2y":h===3?"cif3y":h===5?"cif5y":"cif10y"; }
+
+function getCIFArr(et,hYr){
+  const d=CIF[et];
+  const pts=[[1,'cif1y'],[2,'cif2y'],[3,'cif3y'],[5,'cif5y'],[10,'cif10y']];
+  hYr=Math.max(0.08,Math.min(10,hYr));
+  if(hYr<=1) return d.cif1y.map(v=>v*hYr);
+  for(let i=0;i<pts.length-1;i++){
+    if(hYr>=pts[i][0]&&hYr<=pts[i+1][0]){
+      const t=(hYr-pts[i][0])/(pts[i+1][0]-pts[i][0]);
+      const a=d[pts[i][1]],b=d[pts[i+1][1]];
+      return a.map((v,j)=>v+t*(b[j]-v));
+    }
+  }
+  return d.cif10y;
+}
+function hzToYr(step){ return step*3/12; }
+function hzLabel(step){
+  const m=step*3;
+  if(m<12) return m+' months';
+  const y=m/12;
+  if(Number.isInteger(y)) return y+' year'+(y>1?'s':'');
+  const yr=Math.floor(y),mo=m%12;
+  return yr+'y '+mo+'m';
+}
+
+// Returns day at which CIF first crosses threshold going upward (after minimum)
+// Returns null if never crossed within data range
+function firstCross(et, h, thr) {
+  thr = thr || 0.60;
+  const xs = CIF[et].days, ys = CIF[et][cifKey(h)];
+  let mi = 0;
+  for(let i=1;i<ys.length;i++) if(ys[i]<ys[mi]) mi=i;
+  for(let i=mi;i<ys.length-1;i++){
+    if(ys[i]<thr && ys[i+1]>=thr){
+      const f=(thr-ys[i])/(ys[i+1]-ys[i]);
+      return xs[i]+f*(xs[i+1]-xs[i]);
+    }
+  }
+  return null;
+}
+
+// Returns { acuteEnd, unclearEnd }  (acuteEnd = last day of acute window; unclearEnd = last day of unclear)
+// Windows are ALWAYS based on the 10-year CIF — independent of the display horizon.
+function getWins(et){
+  const acuteEnd  = BIC_Q25[et] - 1;   // e.g., IS = 20, ICH = 12
+  const cross60   = firstCross(et, 10); // always 10-year reference
+  const unclearEnd = cross60 !== null ? Math.round(cross60) : null;
+  return { acuteEnd, unclearEnd };
+}
+
+// ── Modifiers ─────────────────────────────────────────────────────────────────
+const MODS = {
+  IS: [
+    { name:"Large vessel atherosclerosis",          cat:"Stroke aetiology",  sig:"s",  dir:"later",   note:"AFT TR 0.52, p = 0.019" },
+    { name:"Reperfusion therapy (IVT or EVT)",      cat:"Acute treatment",   sig:"ds", dir:"earlier", note:"AFT TR 2.55, p < 0.001" },
+    { name:"Age ≥ 65 years",                        cat:"Demographics",      sig:"s",  dir:"earlier", note:"AFT TR 1.83, p = 0.022" },
+    { name:"Male sex",                              cat:"Demographics",      sig:"tr", dir:"earlier", note:"Trend only — AFT TR 1.57, p = 0.094" },
+    { name:"Cortical involvement on imaging",       cat:"Imaging",           sig:"ns", dir:"later",   note:"Not significant — AFT TR 0.72, p = 0.35" },
+    { name:"Moderate stroke severity (NIHSS 5–15)", cat:"Clinical severity", sig:"ns", dir:"earlier", note:"Not significant — AFT TR 1.53, p = 0.23" }
+  ],
+  ICH: [
+    { name:"Lobar / cortical ICH location",                 cat:"Imaging",      sig:"ds", dir:"later",   note:"AFT TR 0.38, p < 0.001 (strongest predictor)" },
+    { name:"Age ≥ 65 years",                                cat:"Demographics", sig:"ds", dir:"earlier", note:"AFT TR 2.16, p = 0.004" },
+    { name:"Neurosurgical intervention (EVD / evacuation)", cat:"Treatment",    sig:"tr", dir:"later",   note:"Trend — AFT TR 0.59, p = 0.075" },
+    { name:"Haematoma volume > 10 mL",                      cat:"Imaging",      sig:"tr", dir:"earlier", note:"Trend — RMTL −251 d, p = 0.081" },
+    { name:"Male sex",                                      cat:"Demographics", sig:"ns", dir:"later",   note:"Not significant" }
+  ]
+};
+const SCORES = {
+  IS:  { name:"SeLECT 2.0",  desc:"12-item epilepsy risk score after IS (C-stat 0.77). Score ≥ 5 supports ASM discussion.", ref:"Sinka et al. JAMA Neurol 2023;80:605–613", extra:["<b>SeLECT-EEG</b> — EEG biomarkers included; C-stat 0.75: Schubert et al. Ann Neurol 2025 (doi:10.1002/ana.27301)","<b>SeLECT-ASyS</b> — acute symptomatic seizure model; C-stat 0.68–0.70: Schubert et al. Stroke 2025;56:1748–1757"] },
+  ICH: { name:"CAVE Score",  desc:"4-item score for seizure risk after ICH (AUC 0.81). Score ≥ 2 indicates ≥10% 2-year risk.", ref:"Haapaniemi et al. Stroke 2014;45:1971–1976", extra:[] }
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const S = { et:"IS", day:14, hzStep:8 };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function lx(d){ return Math.log10(d+1); }
+
+function interp(day,et,h){
+  const xs=CIF[et].days, ys=CIF[et][cifKey(h)];
+  const d=Math.max(0,Math.min(1810,day));
+  let i=xs.findIndex(x=>x>=d);
+  if(i<=0) return ys[0]; if(i>=xs.length) return ys[ys.length-1];
+  const t=(d-xs[i-1])/(xs[i]-xs[i-1]);
+  return ys[i-1]+t*(ys[i]-ys[i-1]);
+}
+function interpFull(day,et,hYr){
+  const xs=CIF[et].days, ys=getCIFArr(et,hYr);
+  const d=Math.max(0,Math.min(1810,day));
+  let i=xs.findIndex(x=>x>=d);
+  if(i<=0) return ys[0]; if(i>=xs.length) return ys[ys.length-1];
+  const t=(d-xs[i-1])/(xs[i]-xs[i-1]);
+  return ys[i-1]+t*(ys[i]-ys[i-1]);
+}
+
+function dayTxt(d){
+  if(d===0) return "Day 0 (stroke onset)";
+  if(d<7)   return `Day ${d} after stroke`;
+  if(d<14)  return `Day ${d} (week ${Math.round(d/7)})`;
+  if(d<60)  return `Day ${d} (~${Math.round(d/30.4)} month${Math.round(d/30.4)>1?"s":""})`;
+  if(d<365) return `Day ${d} (~${Math.round(d/30.4)} months)`;
+  if(d<730) return `Day ${d} (~${(d/365.25).toFixed(1)} yr)`;
+  return `Day ${d} (~${(d/365.25).toFixed(1)} yrs)`;
+}
+
+// Zone is always based on the 10-year CIF (reference horizon), not the displayed horizon.
+// "High recurrence risk" only applies when 10-year CIF > 60% (= remote symptomatic threshold).
+function rz(p10y){
+  if(p10y < 30)  return{lbl:"Low recurrence risk",              cls:"zlo"};
+  if(p10y <= 60) return{lbl:"Moderate recurrence risk",         cls:"zmd"};
+  return              {lbl:"High recurrence risk (10-yr > 60%)",cls:"zhi"};
+}
+
+function winOf(day,et){
+  const {acuteEnd,unclearEnd}=getWins(et);
+  if(day<=acuteEnd) return "acute";
+  if(unclearEnd===null||day<=unclearEnd) return "unclear";
+  return "remote";
+}
+
+// ── Log-axis tick marks ───────────────────────────────────────────────────────
+const TDYS=[0,1,2,3,5,7,10,14,21,30,45,60,90,120,180,270,365,547,730,1095,1460,1810];
+const TTXT=["Day 0","1","2","3","5","7","10","14","21","1m","45","2m","3m","4m","6m","9m","1yr","18m","2yr","3yr","4yr","5yr"];
+
+// ── PLOT ──────────────────────────────────────────────────────────────────────
+function buildPlot(){
+  const {et,day,hzStep}=S;
+  const hYr=hzToYr(hzStep);
+  const col  = et==="IS"?"#1565c0":"#ad1457";
+  const fill = et==="IS"?"rgba(21,101,192,0.09)":"rgba(173,20,87,0.09)";
+  const ys   = getCIFArr(et,hYr).map(v=>+(v*100).toFixed(3));
+  const xs   = CIF[et].days.map(lx);
+  const pt   = +(interpFull(day,et,hYr)*100).toFixed(2);
+  const xpt  = lx(day);
+  const maxY = et==="IS"?73:77;
+
+  const {acuteEnd,unclearEnd}=getWins(et);
+  const a0=lx(0), a1=lx(acuteEnd+0.5), a3=lx(1811);
+  const a2 = unclearEnd!==null ? lx(unclearEnd+0.5) : a3;
+
+  // Background shading
+  const shapes=[
+    {type:"rect",x0:a0,x1:a1,y0:0,y1:maxY,fillcolor:"rgba(13,71,161,0.06)",line:{width:0}},
+    {type:"rect",x0:a1,x1:a2,y0:0,y1:maxY,fillcolor:"rgba(109,76,0,0.05)",line:{width:0}},
+    {type:"rect",x0:a2,x1:a3+0.02,y0:0,y1:maxY,fillcolor:"rgba(136,14,79,0.06)",line:{width:0}},
+    // Boundary lines
+    {type:"line",x0:a1,x1:a1,y0:0,y1:maxY,line:{color:"rgba(0,0,0,0.30)",width:1.5,dash:"dash"}},
+    // Selected day
+    {type:"line",x0:xpt,x1:xpt,y0:0,y1:pt,line:{color:"#f57f17",width:1.8,dash:"dot"}}
+  ];
+  // 60% line only if boundary exists
+  if(unclearEnd!==null){
+    shapes.splice(4,0,{type:"line",x0:a2,x1:a2,y0:0,y1:maxY,line:{color:"rgba(0,0,0,0.30)",width:1.5,dash:"dash"}});
+    // 60% horizontal reference
+    shapes.push({type:"line",x0:a0,x1:a3,y0:60,y1:60,line:{color:"rgba(136,14,79,0.30)",width:1,dash:"dot"}});
+  }
+
+  // Window label annotations
+  const annots=[
+    {x:(a0+a1)/2,    y:maxY*0.96,text:"<b>Acute<br>symptomatic</b>",showarrow:false,font:{size:9.5,color:"#0d47a1"},xanchor:"center",yanchor:"top"},
+    {x:(a1+a2)/2,    y:maxY*0.96,text:"<b>Unclear<br>window</b>",    showarrow:false,font:{size:9.5,color:"#6d4c00"},xanchor:"center",yanchor:"top"}
+  ];
+  if(unclearEnd!==null){
+    annots.push({x:(a2+a3)/2,y:maxY*0.96,text:"<b>Remote<br>symptomatic</b>",showarrow:false,font:{size:9.5,color:"#6a0028"},xanchor:"center",yanchor:"top"});
+    annots.push({x:a3-0.02,y:61.5,text:"60%",showarrow:false,font:{size:8,color:"rgba(136,14,79,0.6)"},xanchor:"right",yanchor:"bottom"});
+  } else {
+    // unclear runs to end of plot; add note
+    annots.push({x:(a1+a3)/2,y:maxY*0.96,text:"<b>Unclear window</b><br><i style='font-weight:400'>(60% not reached)</i>",showarrow:false,font:{size:9,color:"#6d4c00"},xanchor:"center",yanchor:"top"});
+  }
+
+  const traceCurve={
+    x:xs,y:ys,type:"scatter",mode:"lines",
+    line:{color:col,width:2.8,shape:"spline",smoothing:0.5},
+    fill:"tozeroy",fillcolor:fill,
+    name:et==="IS"?`IS · ${hzLabel(hzStep)} risk`:`ICH · ${hzLabel(hzStep)} risk`,
+    hovertemplate:"<b>Day %{customdata}</b>  %{y:.1f}%<extra></extra>",
+    customdata:CIF[et].days
+  };
+  const tracePt={
+    x:[xpt],y:[pt],type:"scatter",mode:"markers+text",
+    marker:{color:"#f57f17",size:13,symbol:"circle",line:{color:"white",width:2}},
+    text:[`  ${pt.toFixed(1)}%`],
+    textposition:pt>maxY*0.75?"bottom right":"top right",
+    textfont:{color:"#e65100",size:12.5},
+    name:"Selected day",showlegend:false,
+    hovertemplate:`<b>Day ${day}</b>  ${pt.toFixed(1)}% (${hzLabel(hzStep)})<extra></extra>`
+  };
+
+  const layout={
+    xaxis:{
+      title:{text:"Day of First Post-Stroke Seizure  (log₁₀ scale)",font:{size:11.5,color:"#455a64"}},
+      tickvals:TDYS.map(lx),ticktext:TTXT,tickfont:{size:9.5},
+      range:[-0.04,lx(1810)+0.05],
+      gridcolor:"#eceff1",zerolinecolor:"#cfd8dc",
+      showspikes:true,spikemode:"across",spikethickness:1,spikecolor:"#b0bec5"
+    },
+    yaxis:{
+      title:{text:`${hzLabel(hzStep)} Recurrence Probability (%)`,font:{size:11.5,color:"#455a64"}},
+      tickformat:".0f",ticksuffix:"%",tickfont:{size:10.5},
+      range:[0,maxY],gridcolor:"#eceff1"
+    },
+    shapes,annotations:annots,
+    legend:{orientation:"h",x:0.01,y:0.08,font:{size:11},bgcolor:"rgba(255,255,255,.85)"},
+    margin:{l:58,r:14,t:8,b:58},
+    plot_bgcolor:"#ffffff",paper_bgcolor:"#ffffff",
+    hovermode:"x unified",
+    font:{family:"Segoe UI,Helvetica Neue,Arial,sans-serif"}
+  };
+
+  Plotly.react("cifPlot",[traceCurve,tracePt],layout,
+    {responsive:true,displayModeBar:true,modeBarButtonsToRemove:["pan2d","select2d","lasso2d","autoScale2d","toggleSpikelines"],displaylogo:false});
+}
+
+// ── UI UPDATES ────────────────────────────────────────────────────────────────
+function updRisk(){
+  const hYr=hzToYr(S.hzStep);
+  const cif    = interpFull(S.day, S.et, hYr);     // displayed horizon CIF
+  const cif10y = interp(S.day, S.et, 10);           // always 10-year for zone classification
+  const pct    = (cif * 100).toFixed(1);
+  const pct10y = (cif10y * 100).toFixed(1);
+  const {lbl, cls} = rz(cif10y * 100);              // zone based on 10-yr value
+  document.getElementById("rPct").textContent = pct + "%";
+  document.getElementById("rLbl").innerHTML   =
+    `within ${hzLabel(S.hzStep)} · day ${S.day}` +
+    (S.hzStep !== 40 ? `<br><span style="font-size:.85em;opacity:.75;">(10-yr: ${pct10y}%)</span>` : "");
+  document.getElementById("rZne").textContent = lbl;
+  document.getElementById("riskBox").className = "rbox " + cls;
+  document.getElementById("hzDisp").textContent = hzLabel(S.hzStep);
+}
+
+function updWin(){
+  const {acuteEnd,unclearEnd}=getWins(S.et);
+  const wc=winOf(S.day,S.et);
+  // proportional widths on log axis
+  const a0=lx(0),a1=lx(acuteEnd+0.5),a2=unclearEnd!==null?lx(unclearEnd+0.5):lx(1811),a3=lx(1811);
+  const tot=a3-a0;
+  const f0=((a1-a0)/tot*100).toFixed(1);
+  const f1=((a2-a1)/tot*100).toFixed(1);
+  const f2=unclearEnd!==null?((a3-a2)/tot*100).toFixed(1):null;
+
+  let html=`<div class="wstrip">
+    <div class="wseg wa${wc==="acute"?" whi":""}" style="flex:${f0};">Acute symptomatic<br>Days 0–${acuteEnd}</div>
+    <div class="wseg wu${wc==="unclear"?" whi":""}" style="flex:${f1};">${unclearEnd!==null?`Unclear window<br>Days ${acuteEnd+1}–${unclearEnd}`:`Unclear window<br>Days ${acuteEnd+1}+`}</div>`;
+  if(unclearEnd!==null){
+    html+=`<div class="wseg wr${wc==="remote"?" whi":""}" style="flex:${f2};">Remote symptomatic<br>Day ${unclearEnd+1}+</div>`;
+  }
+  html+="</div>";
+  document.getElementById("wStrip").innerHTML=html;
+
+  // Key text
+  const note= unclearEnd===null
+    ? `<b>Note:</b> The 60% recurrence threshold is not reached in the 10-year data for ${S.et}. The full post-acute period is classified as the unclear window.`
+    : `<b>Boundary logic:</b> Acute/unclear split at <b>day ${S.et==="IS"?21:13}</b> (BIC bootstrap Q25). Unclear/remote split at <b>day ${unclearEnd+1}</b> (first 60% crossing, 10-yr CIF — fixed reference).`;
+  document.getElementById("wKey").innerHTML=`<div class="notebox">${note}</div>`;
+}
+
+function updBand(){
+  const {acuteEnd,unclearEnd}=getWins(S.et);
+  const a0=lx(0),a1=lx(acuteEnd+0.5),a2=unclearEnd!==null?lx(unclearEnd+0.5):lx(1811),a3=lx(1811);
+  const tot=a3-a0;
+  const f0=((a1-a0)/tot*100).toFixed(1);
+  const f1=((a2-a1)/tot*100).toFixed(1);
+  const f2=unclearEnd!==null?((a3-a2)/tot*100).toFixed(1):null;
+
+  let html=`<div class="bseg ba" style="flex:${f0};">Acute symptomatic · Days 0–${acuteEnd}</div>
+    <div class="bseg bu" style="flex:${f1};">${unclearEnd!==null?`Unclear window · Days ${acuteEnd+1}–${unclearEnd}`:`Unclear window · Days ${acuteEnd+1}+`}</div>`;
+  if(unclearEnd!==null) html+=`<div class="bseg br" style="flex:${f2};">Remote symptomatic · Day ${unclearEnd+1}+</div>`;
+  document.getElementById("brow").innerHTML=html;
+}
+
+function updDay(){
+  document.getElementById("dayDisp").innerHTML=`${S.day} <span>day${S.day!==1?"s":""}</span>`;
+  document.getElementById("dayCtx").textContent=dayTxt(S.day);
+}
+
+function updTitle(){
+  const n=S.et==="IS"?"Ischaemic Stroke":"Intracerebral Haemorrhage";
+  document.getElementById("ptitle").textContent=`${n} · Seizure Recurrence Risk by Day of First Seizure (${hzLabel(S.hzStep)})`;
+}
+
+function updMods(){
+  let html="",cat="";
+  MODS[S.et].forEach(m=>{
+    if(m.cat!==cat){html+=`<div class="mhdr">${m.cat}</div>`;cat=m.cat;}
+    const dc=m.sig==="ds"?"sds":m.sig==="s"?"ss":m.sig==="tr"?"str":"sns";
+    const dh=m.dir==="later"?`<span class="mdir dlater">→ Later</span>`:`<span class="mdir dearlier">→ Earlier</span>`;
+    html+=`<div class="mitem"><div class="mdot ${dc}"></div><div class="mname"><b>${m.name}</b><span style="color:var(--muted);font-size:.82em;display:block;">${m.note}</span></div>${dh}</div>`;
+  });
+  document.getElementById("modPanel").innerHTML=html;
+}
+
+function updScore(){
+  const s=SCORES[S.et];
+  const c=S.et==="IS"?"var(--is-col)":"var(--ich-col)";
+  let html=`<div style="font-size:.83em;font-weight:700;color:${c};margin-bottom:4px;">${s.name}</div>
+    <div style="font-size:.77em;color:var(--slate);margin-bottom:5px;">${s.desc}</div>
+    <div class="sref"><b>Reference:</b> ${s.ref}</div>`;
+  if(s.extra.length){
+    html+=`<div style="margin-top:7px;font-size:.7em;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Related scores</div>`;
+    s.extra.forEach(e=>{html+=`<div class="xmod">${e}</div>`;});
+  }
+  document.getElementById("scorePanel").innerHTML=html;
+}
+
+function updEt(){
+  document.getElementById("btn-IS").className ="etbtn"+(S.et==="IS" ?" ais":"");
+  document.getElementById("btn-ICH").className="etbtn"+(S.et==="ICH"?" aich":"");
+}
+function updHz(){
+  const el=document.getElementById("hzSlider");
+  if(el) el.value=S.hzStep;
+  document.getElementById("hzDisp").textContent=hzLabel(S.hzStep);
+}
+
+function updAll(){ updEt();updHz();updDay();updRisk();updWin();updTitle();updBand();updMods();updScore();buildPlot(); }
+
+// ── Events ────────────────────────────────────────────────────────────────────
+function setET(et){ S.et=et; updAll(); }
+function onHz(v)  { S.hzStep=+v; updRisk();updHz();updTitle();updWin();updBand();buildPlot(); }
+
+function onSlider(v){
+  S.day=parseInt(v,10);
+  document.getElementById("dayNum").value=S.day;
+  updDay();updRisk();updWin();buildPlot();
+}
+function onNum(v){
+  let d=parseInt(v,10);
+  if(isNaN(d)) return;
+  d=Math.max(0,Math.min(1810,d));
+  S.day=d;
+  document.getElementById("daySlider").value=d;
+  updDay();updRisk();updWin();buildPlot();
+}
+
+document.addEventListener("DOMContentLoaded",updAll);
+</script>
+</body>
+</html>
