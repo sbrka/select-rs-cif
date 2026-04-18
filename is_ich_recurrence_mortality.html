@@ -441,13 +441,13 @@
         <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
           <span style="width:13px;height:13px;border-radius:3px;flex-shrink:0;display:inline-block;
                        background:#FEF2DC;border:1px solid rgba(179,89,0,0.28);"></span>
-          <span style="color:#B35900;"><b>Moderate</b> &mdash; LHH&thinsp;&ge;&thinsp;1.5 &middot; CIF&thinsp;31.6&ndash;60%</span>
+          <span style="color:#B35900;"><b>Medium</b> &mdash; LHH&thinsp;&ge;&thinsp;1.5 &middot; CIF&thinsp;31.6&ndash;60%</span>
         </span>
         <span style="color:#bbb;">&nbsp;|&nbsp;</span>
         <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
           <span style="width:13px;height:13px;border-radius:3px;flex-shrink:0;display:inline-block;
                        background:#F9E3EA;border:1px solid rgba(123,0,50,0.28);"></span>
-          <span style="color:#7B0032;"><b>High</b> &mdash; CIF&thinsp;&gt;&thinsp;60% (ILAE epilepsy threshold)</span>
+          <span style="color:#7B0032;"><b>High</b> &mdash; CIF&thinsp;&ge;&thinsp;60% (ILAE epilepsy threshold)</span>
         </span>
         <span style="color:#bbb;">&nbsp;|&nbsp;</span>
         <span style="color:#86868b;font-style:italic;white-space:nowrap;">
@@ -575,7 +575,7 @@ const RISK_SEGS = {
   ]
 };
 
-const NNH_MIN = 19;  // LCS / PGB / ZNS (Brigo et al., Epilepsia 2026)
+const NNH_MIN = 19;  // Base-case NNH used for LHH display.
 
 function cifAtMonths(et, m) {
   const kpts = [{m:12,key:'cif1y'},{m:24,key:'cif2y'},{m:36,key:'cif3y'},{m:60,key:'cif5y'},{m:120,key:'cif10y'}];
@@ -707,7 +707,7 @@ function dayTxt(d){
 }
 function rz(p10y){
   if(p10y<31.6) return{lbl:"Low recurrence risk",cls:"zlo"};
-  if(p10y<60)   return{lbl:"Moderate recurrence risk",cls:"zmd"};
+  if(p10y<60)   return{lbl:"Medium recurrence risk",cls:"zmd"};
   return{lbl:"High recurrence risk",cls:"zhi"};
 }
 function winOf(day,et){
@@ -804,7 +804,7 @@ function buildPlot(){
      text:"<b>Low risk</b>",showarrow:false,
      font:{size:9,color:"rgba(27,107,27,0.45)"},xanchor:"left",yanchor:"middle"},
     {x:xL+0.02,y:(LHH15+ILAE)*0.50,
-     text:"<b>Moderate risk</b>",showarrow:false,
+     text:"<b>Medium risk</b>",showarrow:false,
      font:{size:9,color:"rgba(179,89,0,0.45)"},xanchor:"left",yanchor:"middle"}
   ];
   if(ILAE < maxY - 4){
