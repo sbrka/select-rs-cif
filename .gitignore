@@ -2,6 +2,9 @@
 # Everything else in this folder is local manuscript work.
 *
 !index.html
+!is_ich_recurrence_mortality.html
+!sah_cvt_recurrence_mortality.html
+!.nojekyll
 !.gitignore
 !first_paper_draft_v1/
 !first_paper_draft_v1/SeLECT_RS_Figure3_Interactive_CIF.html

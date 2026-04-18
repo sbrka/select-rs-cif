@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeLECT-RS · Interactive Seizure Recurrence Risk Tool</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.1/plotly.min.js"></script>
+  <style>
+    :root {
+      --text:    #1d1d1f;
+      --text2:   #6e6e73;
+      --text3:   #86868b;
+      --bg:      #f5f5f7;
+      --surface: #ffffff;
+      --border:  rgba(0,0,0,.06);
+      --border2: rgba(0,0,0,.08);
+      --is:      #0071e3;
+      --ich:     #c41e3a;
+      --pt-col:  #f59f0b;
+      --green:   #28a745;
+      --amber:   #e67700;
+      --acol: #0d47a1; --abg: #e8f1fc;
+      --ucol: #5d4200; --ubg: #fef9ed;
+      --rcol: #6a0028; --rbg: #fceef2;
+      --hz-accent: var(--is);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ── Header ── */
+    .hdr {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 28px 18px;
+    }
+    .hdr h1 {
+      font-size: 1.15em;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+    .hdr p {
+      font-size: 0.75em;
+      color: var(--text3);
+      margin-top: 3px;
+    }
+
+    /* ── Layout ── */
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 20px 20px 32px;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 16px;
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: 0 0.5px 1px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.04);
+      margin-bottom: 12px;
+      transition: box-shadow 0.2s ease;
+    }
+    .card:hover { box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.06); }
+    .card:last-child { margin-bottom: 0; }
+
+    .clabel {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 12px;
+    }
+
+    /* ── Aetiology toggle ── */
+    .etrow { display: flex; gap: 8px; }
+    .etbtn {
+      flex: 1; padding: 10px 6px; border-radius: 12px;
+      border: 1.5px solid var(--border2);
+      background: var(--bg); cursor: pointer;
+      font-size: 13px; font-weight: 600;
+      color: var(--text2); text-align: center;
+      transition: all 0.15s ease; line-height: 1.3;
+    }
+    .etbtn:hover { border-color: var(--text3); }
+    .etbtn.ais  { background: rgba(0,113,227,.06); border-color: var(--is); color: var(--is); }
+    .etbtn.aich { background: rgba(196,30,58,.06); border-color: var(--ich); color: var(--ich); }
+    .etbtn span.ab { font-size: 1.2em; display: block; margin-bottom: 2px; font-weight: 700; }
+    .etbtn span.nm { font-size: 11px; font-weight: 400; display: block; color: var(--text3); }
+    .etbtn.ais span.nm, .etbtn.aich span.nm { color: inherit; opacity: .7; }
+
+    /* ── Custom Range Slider ── */
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 3px; border-radius: 1.5px;
+      background: rgba(0,0,0,.08); outline: none; cursor: pointer;
+      margin: 12px 0 6px;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      height: 3px; border-radius: 1.5px;
+      background: linear-gradient(to right, var(--hz-accent) 0%, var(--hz-accent) var(--slider-pct, 50%), rgba(0,0,0,.08) var(--slider-pct, 50%), rgba(0,0,0,.08) 100%);
+    }
+    input[type=range]::-moz-range-track { height: 3px; border-radius: 1.5px; background: rgba(0,0,0,.08); }
+    input[type=range]::-moz-range-progress { height: 3px; border-radius: 1.5px; background: var(--hz-accent); }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; border: none;
+      box-shadow: 0 0.5px 1px rgba(0,0,0,.1), 0 1px 4px rgba(0,0,0,.15), 0 0 0 0.5px rgba(0,0,0,.04);
+      margin-top: -8.5px; cursor: pointer;
+      transition: box-shadow 0.15s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      box-shadow: 0 0.5px 2px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.18), 0 0 0 0.5px rgba(0,0,0,.06);
+    }
+    input[type=range]::-moz-range-thumb {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #fff; border: none;
+      box-shadow: 0 0.5px 1px rgba(0,0,0,.1), 0 1px 4px rgba(0,0,0,.15), 0 0 0 0.5px rgba(0,0,0,.04);
+      cursor: pointer;
+    }
+
+    /* ── Horizon card ── */
+    .hz-display {
+      text-align: center; font-size: 1.5em; font-weight: 700;
+      line-height: 1.2; margin: 2px 0 0;
+      letter-spacing: -0.02em;
+      transition: color 0.25s ease;
+    }
+    .hz-ticks { position: relative; height: 14px; font-size: 10px; color: var(--text3); margin-top: 2px; }
+    .hz-ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+    .hz-note { font-size: 11px; color: var(--text3); text-align: center; margin-top: 8px; }
+
+    /* ── Day display ── */
+    .day-card { border-top: 2.5px solid var(--pt-col); }
+    .daybig {
+      text-align: center; font-size: 2em; font-weight: 800;
+      color: var(--text); line-height: 1;
+      margin: 4px 0 3px; letter-spacing: -0.03em;
+    }
+    .daybig span { font-size: .38em; font-weight: 500; color: var(--text3); vertical-align: middle; margin-left: 2px; }
+    .dayctx { text-align: center; font-size: 12px; color: var(--text3); margin-bottom: 4px; }
+    @keyframes dayPop { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1)} }
+    .day-pop { animation: dayPop 120ms ease; }
+    .rlabs { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); margin-bottom: 4px; }
+    .nrow  { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+    .nrow label { font-size: 11px; color: var(--text3); white-space: nowrap; }
+    input[type=number] {
+      flex: 1; padding: 5px 8px; border: 1px solid var(--border2);
+      border-radius: 8px; font-size: 13px;
+      background: var(--bg); color: var(--text);
+      font-family: inherit;
+      transition: border-color 0.15s ease;
+    }
+    input[type=number]:focus { border-color: var(--is); outline: none; box-shadow: 0 0 0 3px rgba(0,113,227,.12); }
+
+    /* ── Risk box ── */
+    .rbox {
+      border-radius: 14px; padding: 14px 14px 12px;
+      text-align: center; transition: all 0.25s ease;
+      margin-bottom: 6px;
+    }
+    .rpct {
+      font-size: 2.4em; font-weight: 800; line-height: 1;
+      letter-spacing: -0.03em;
+      transition: color 0.25s ease;
+    }
+    .rlbl { font-size: 11px; margin-top: 5px; opacity: .7; font-weight: 500; }
+    .rzne {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+      margin-top: 6px; padding: 3px 12px; border-radius: 20px;
+      display: inline-block;
+      transition: background 0.25s ease;
+    }
+    .zlo { background: #f0faf0; color: #1a7f37; }
+    .zlo .rzne { background: rgba(26,127,55,.1); color: #1a7f37; }
+    .zmd { background: #fef9ed; color: #9a6700; }
+    .zmd .rzne { background: rgba(154,103,0,.1); color: #9a6700; }
+    .zhi { background: #fef1f3; color: #c41e3a; }
+    .zhi .rzne { background: rgba(196,30,58,.1); color: #c41e3a; }
+
+    /* ── Window strip ── */
+    .wstrip { display: flex; border-radius: 10px; overflow: hidden; font-size: 10px; font-weight: 600; margin: 8px 0 4px; }
+    .wseg   { padding: 5px 4px; text-align: center; line-height: 1.3; }
+    .wa { background: var(--abg); color: var(--acol); }
+    .wu { background: var(--ubg); color: var(--ucol); }
+    .wr { background: var(--rbg); color: var(--rcol); }
+    .whi { outline: 2px solid var(--pt-col); outline-offset: -2px; border-radius: 2px; }
+
+    .wkey { font-size: 11px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+    .wkey b { color: var(--text2); }
+
+    /* ── Score ── */
+    .sref { font-size: 12px; color: var(--text2); margin-top: 6px; padding: 8px 10px; background: var(--bg); border-radius: 10px; line-height: 1.5; }
+    .sref b { color: var(--text); }
+    .xmod { font-size: 12px; color: var(--text2); margin-top: 4px; padding: 6px 10px; background: var(--bg); border-radius: 8px; line-height: 1.5; }
+
+    /* ── Plot area ── */
+    .parea {
+      background: var(--surface);
+      border-radius: 16px;
+      box-shadow: 0 0.5px 1px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.04);
+      padding: 18px 18px 12px;
+      transition: box-shadow 0.2s ease;
+    }
+    .parea:hover { box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.06); }
+    .ptitle {
+      font-size: 15px; font-weight: 600; color: var(--text);
+      letter-spacing: -0.01em; margin-bottom: 2px;
+    }
+    .psub { font-size: 12px; color: var(--text3); margin-bottom: 8px; }
+    #cifPlot { width: 100%; height: 440px; }
+    #mortPlot { width:100%; height:360px; }
+    .mort-note { font-size:12px; color:var(--text3); line-height:1.55; margin:8px 0 6px; }
+
+
+    /* ── Note box ── */
+    .notebox {
+      font-size: 11px; background: var(--ubg); border: 1px solid rgba(0,0,0,.06);
+      border-radius: 10px; padding: 8px 10px; margin-top: 6px;
+      color: var(--ucol); line-height: 1.5;
+    }
+    .notebox b { color: var(--amber); }
+
+    /* ── Footnote ── */
+    .fn { font-size: 11px; color: var(--text3); margin-top: 10px; line-height: 1.6; }
+    .fn b { color: var(--text2); }
+
+    /* ── LHH threshold card ── */
+    .lhh-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:2px; }
+    .lhh-lbl { font-size:12px; color:var(--text2); }
+    .lhh-val { font-size:13px; font-weight:700; color:var(--text); }
+    .lhh-ticks { display:flex; justify-content:space-between; font-size:10px; color:var(--text3); margin:-3px 0 10px; }
+    .nnh-row { display:flex; gap:6px; margin:4px 0 2px; }
+    .nnh-btn {
+      flex:1; padding:6px 4px; border-radius:10px;
+      border:1.5px solid var(--border2); background:var(--bg);
+      cursor:pointer; font-size:11px; font-weight:600;
+      color:var(--text2); text-align:center; line-height:1.4;
+      transition:all 0.15s ease; font-family:inherit;
+    }
+    .nnh-btn:hover { border-color:var(--text3); }
+    .nnh-btn.ann { background:rgba(0,0,0,.04); border-color:var(--text); color:var(--text); }
+    .lhh-summary {
+      font-size:11px; color:var(--text2);
+      padding:7px 10px; background:var(--bg);
+      border-radius:10px; line-height:1.65; margin-top:10px;
+    }
+    .lhh-summary b { color:var(--text); }
+
+    /* ── Info button & modal ── */
+    .info-btn {
+      background: none; border: 1.5px solid var(--border2); border-radius: 50%;
+      width: 22px; height: 22px; cursor: pointer; font-size: 12px;
+      color: var(--text3); display: inline-flex; align-items: center; justify-content: center;
+      font-family: inherit; transition: all 0.15s ease; flex-shrink: 0; line-height: 1;
+    }
+    .info-btn:hover { border-color: var(--text3); color: var(--text); background: var(--bg); }
+    .info-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 200;
+    }
+    .info-modal {
+      display: none; position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      background: var(--surface); border-radius: 18px; padding: 22px 24px 18px;
+      max-width: 400px; width: calc(100% - 40px); z-index: 201;
+      box-shadow: 0 12px 48px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.08);
+    }
+    .info-modal h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: var(--text); }
+    .info-modal p  { font-size: 12px; color: var(--text2); line-height: 1.7; margin-bottom: 8px; }
+    .info-modal p:last-child { margin-bottom: 0; }
+    .info-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: var(--text3); font-family: inherit; line-height: 1; padding: 0;
+    }
+    .info-close:hover { color: var(--text); }
+
+    /* ── Modifiers ── */
+    .mhdr { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin: 10px 0 4px; }
+    .mitem { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+    .mitem:last-child { border-bottom: none; }
+    .mdot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+    .sds{background:#1a7f37;} .ss{background:#57ab5a;} .str{background:#d4a72c;} .sns{background:#afb8c1;}
+    .mname { font-size: 13px; color: var(--text2); flex: 1; }
+    .mname b { color: var(--text); font-weight: 600; }
+    .mdir {
+      font-size: 11px; font-weight: 600; padding: 2px 8px;
+      border-radius: 20px; white-space: nowrap;
+    }
+    .dlater  { background: rgba(26,127,55,.08); color: #1a7f37; }
+    .dearlier{ background: rgba(230,119,0,.08); color: var(--amber); }
+    .mleg { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .mli  { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text3); }
+    .dsm  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+    /* ── Expandable sections ── */
+    .xbtn {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid var(--border2); border-radius: 12px;
+      background: var(--surface); cursor: pointer;
+      font-size: 13px; font-weight: 600; color: var(--text2);
+      display: flex; justify-content: space-between; align-items: center;
+      transition: all 0.15s ease; text-align: left;
+      font-family: inherit;
+    }
+    .xbtn:hover { border-color: var(--text3); color: var(--text); }
+    .xcontent { display: none; margin-top: 10px; }
+    .xcontent.open { display: block; }
+
+    @media(max-width:740px){ .page { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>SeLECT-RS · Post-Stroke Seizure Recurrence Risk</h1>
+  <p>Competing-risk analysis (Fine-Gray, IPW-adjusted) · IS n=927 · ICH n=715 · Schubert et al. 2026</p>
+</div>
+
+<div class="page">
+
+  <!-- ═ SIDEBAR ═ -->
+  <div>
+
+    <div class="card">
+      <div class="clabel">&#9312; Stroke Aetiology</div>
+      <div class="etrow">
+        <button class="etbtn ais" id="btn-IS" onclick="setET('IS')">
+          <span class="ab">IS</span><span class="nm">Ischaemic Stroke</span>
+        </button>
+        <button class="etbtn" id="btn-ICH" onclick="setET('ICH')">
+          <span class="ab">ICH</span><span class="nm">Intracerebral Haemorrhage</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="clabel">&#9313; Follow-up Horizon</div>
+      <div class="hz-display" id="hzDisp" style="color:var(--is);">10 years</div>
+      <input type="range" id="hzSlider" min="3" max="120" value="120" step="3" oninput="onHzSlider(this.value)">
+      <div class="hz-ticks">
+        <span style="left:7.7%">1</span><span style="left:17.9%">2</span><span style="left:28.2%">3</span><span style="left:38.5%">4</span><span style="left:48.7%">5</span><span style="left:59.0%">6</span><span style="left:69.2%">7</span><span style="left:79.5%">8</span><span style="left:89.7%">9</span><span style="left:100%">10</span>
+      </div>
+      <div class="hz-note">Clinical zones fixed from corrected Figure&nbsp;4 · Risk category updates with the 10-year CIF</div>
+    </div>
+
+    <div class="card day-card">
+      <div class="clabel">&#9314; Day of First Seizure after Stroke</div>
+      <div class="daybig" id="dayDisp">14 <span>days</span></div>
+      <div class="dayctx" id="dayCtx">2 weeks after stroke onset</div>
+      <input type="range" id="daySlider" min="0" max="1810" value="14" step="1" oninput="onSlider(this.value)">
+      <div class="rlabs"><span>Day 0</span><span>6 m</span><span>1 yr</span><span>3 yr</span><span>5 yr</span></div>
+      <div class="nrow">
+        <label>Custom:</label>
+        <input type="number" id="dayNum" min="0" max="1810" value="14" oninput="onNum(this.value)">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="clabel">&#9315; Recurrence Probability</div>
+      <div class="rbox zlo" id="riskBox">
+        <div class="rpct" id="rPct">&mdash;</div>
+        <div class="rlbl" id="rLbl">&mdash;</div>
+        <div class="rzne" id="rZne">&mdash;</div>
+      </div>
+      <div id="wStrip"></div>
+      <div class="wkey" id="wKey"></div>
+    </div>
+
+    <div class="card">
+      <div class="clabel">&#9317; Clinical Time Zones &amp; Risk Categories
+        <button class="info-btn" onclick="openInfo()" title="Methodology &amp; references"
+                style="margin-left:6px;vertical-align:middle;">&#9432;</button>
+      </div>
+
+      <!-- Fixed Figure 2 thresholds — two coloured rows -->
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
+                    background:#D5EDD5;border-radius:10px;">
+          <div style="font-size:18px;font-weight:800;color:#1B6B1B;line-height:1;
+                      white-space:nowrap;">LHH &ge; 1.5</div>
+          <div style="font-size:11px;color:#1B6B1B;line-height:1.4;">
+            <b>Low / medium risk threshold</b><br>
+            CIF &ge; 31.6% &middot; NNT &le; 12.7
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;
+                    background:#F9E3EA;border-radius:10px;">
+          <div style="font-size:18px;font-weight:800;color:#7B0032;line-height:1;
+                      white-space:nowrap;">CIF &ge; 60%</div>
+          <div style="font-size:11px;color:#7B0032;line-height:1.4;">
+            <b>High-risk threshold</b><br>
+            ILAE epilepsy threshold &middot; 10-yr CIF
+          </div>
+        </div>
+      </div>
+
+      <div class="lhh-summary" id="lhhSummary"></div>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ═ MAIN ═ -->
+  <div>
+
+    <div class="parea">
+      <div class="ptitle" id="ptitle">Ischaemic Stroke · Seizure Recurrence Risk by Day of First Seizure</div>
+      <div class="psub" id="psub">
+        Log-scale axis · <span id="psubHz">10 years</span> horizon
+      </div>
+      <div id="cifPlot"></div>
+
+      <!-- ── LHH Risk-Zone Legend (matches Figure 2 horizontal bands) ── -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+                  margin:5px 0 6px;padding:6px 10px;
+                  background:#f5f5f7;border-radius:10px;font-size:11px;line-height:1.4;">
+        <span style="font-weight:600;color:#6e6e73;white-space:nowrap;margin-right:2px;">
+          Risk zones (LHH, NNH&thinsp;=&thinsp;19, RRR&thinsp;=&thinsp;25%):
+        </span>
+        <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
+          <span style="width:13px;height:13px;border-radius:3px;flex-shrink:0;display:inline-block;
+                       background:#D5EDD5;border:1px solid rgba(27,107,27,0.28);"></span>
+          <span style="color:#1B6B1B;"><b>Low</b> &mdash; LHH&thinsp;&lt;&thinsp;1.5 &middot; CIF&thinsp;&lt;&thinsp;31.6%</span>
+        </span>
+        <span style="color:#bbb;">&nbsp;|&nbsp;</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
+          <span style="width:13px;height:13px;border-radius:3px;flex-shrink:0;display:inline-block;
+                       background:#FEF2DC;border:1px solid rgba(179,89,0,0.28);"></span>
+          <span style="color:#B35900;"><b>Moderate</b> &mdash; LHH&thinsp;&ge;&thinsp;1.5 &middot; CIF&thinsp;31.6&ndash;60%</span>
+        </span>
+        <span style="color:#bbb;">&nbsp;|&nbsp;</span>
+        <span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap;">
+          <span style="width:13px;height:13px;border-radius:3px;flex-shrink:0;display:inline-block;
+                       background:#F9E3EA;border:1px solid rgba(123,0,50,0.28);"></span>
+          <span style="color:#7B0032;"><b>High</b> &mdash; CIF&thinsp;&gt;&thinsp;60% (ILAE epilepsy threshold)</span>
+        </span>
+        <span style="color:#bbb;">&nbsp;|&nbsp;</span>
+        <span style="color:#86868b;font-style:italic;white-space:nowrap;">
+          Dashed lines: LHH&thinsp;=&thinsp;1.5 &middot; 60% ILAE threshold
+        </span>
+      </div>
+
+      <div class="fn">
+        <b>Clinical time zones</b> are monotone and do not revert after a threshold is first reached:
+        IS — Acute days&thinsp;0–19&thinsp;|&thinsp;Intermediate days&thinsp;20–89&thinsp;|&thinsp;Remote day&thinsp;90+.
+        ICH — Acute days&thinsp;0–4&thinsp;|&thinsp;Intermediate days&thinsp;5–20&thinsp;|&thinsp;Remote day&thinsp;21+.
+        <b>Risk categories</b> are instantaneous 10-yr CIF categories and may be non-contiguous:
+        IS low days&thinsp;0–19, medium days&thinsp;20–89 and &ge;533, high days&thinsp;90–532;
+        ICH medium day&thinsp;0 and days&thinsp;5–20, low days&thinsp;1–4, high day&thinsp;21+.
+        Thresholds: low/medium = CIF&thinsp;&ge;&thinsp;31.6% (LHH&thinsp;&ge;&thinsp;1.5; NNH&thinsp;=&thinsp;19, RRR&thinsp;=&thinsp;25%); high = CIF&thinsp;&ge;&thinsp;60% (ILAE).
+        &nbsp;|&nbsp; <b>IS</b> = ischaemic stroke &nbsp;&middot;&nbsp; <b>ICH</b> = intracerebral haemorrhage
+        &nbsp;&middot;&nbsp; <b>AFT</b> = accelerated failure time &nbsp;&middot;&nbsp; <b>TR</b> = time ratio (TR&thinsp;&gt;&thinsp;1 → recurrent seizure later)
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <button class="xbtn" onclick="toggleX('modContent','modArr')">
+        <span>&#9316; Individual Factors Modifying the Seizure-Day Window</span><span id="modArr">&#9660;</span>
+      </button>
+      <div class="xcontent" id="modContent">
+        <p style="font-size:12px;color:var(--text3);margin:8px 0 6px;">
+          AFT/RMTL models estimate earlier or later recurrent seizure after the first seizure; they do not relabel the day of first seizure.
+        </p>
+        <div id="modPanel"></div>
+        <div class="mleg">
+          <div class="mli"><div class="dsm" style="background:#1a7f37;"></div>p &lt; 0.01</div>
+          <div class="mli"><div class="dsm" style="background:#57ab5a;"></div>p &lt; 0.05</div>
+          <div class="mli"><div class="dsm" style="background:#d4a72c;"></div>Trend</div>
+          <div class="mli"><div class="dsm" style="background:#afb8c1;"></div>n.s.</div>
+          <div class="mli" style="margin-left:auto;">
+            <span class="mdir dlater">Later recurrence</span>
+          </div>
+          <div class="mli">
+            <span class="mdir dearlier">Earlier recurrence</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <button class="xbtn" onclick="toggleX('mortContent','mortArr')">
+        <span>&#9318; 10-year Mortality Curve</span><span id="mortArr">&#9660;</span>
+      </button>
+      <div class="xcontent" id="mortContent">
+        <p class="mort-note">All-cause mortality CIF by day of first seizure. Fine-Gray IPW model; seizure recurrence is treated as the competing event.</p>
+        <div id="mortPlot"></div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /page -->
+
+<div style="max-width:1180px;margin:0 auto;padding:0 20px 32px;">
+  <div class="card">
+    <button class="xbtn" onclick="toggleX('scorePanel','scoreArr')">
+      <span>Further Information · Applicable Prognostic Scores</span><span id="scoreArr">&#9660;</span>
+    </button>
+    <div class="xcontent" id="scorePanel"></div>
+  </div>
+</div>
+
+<!-- ── Info modal ── -->
+<div class="info-overlay" id="infoOverlay" onclick="closeInfo()"></div>
+<div class="info-modal" id="infoModal">
+  <button class="info-close" onclick="closeInfo()">&times;</button>
+  <h3>Clinical Time Zones and Risk Categories — Figures 2 &amp; 4</h3>
+  <p>
+    <b>Clinical time zones are monotone.</b>
+    IS: acute days&thinsp;0–19, intermediate days&thinsp;20–89, remote day&thinsp;90+.
+    ICH: acute days&thinsp;0–4, intermediate days&thinsp;5–20, remote day&thinsp;21+.
+    Once the remote symptomatic threshold is reached, the clinical time zone does not move back to intermediate.
+  </p>
+  <p>
+    <b>Risk categories are instantaneous.</b>
+    Low = CIF &lt;31.6%; medium = CIF 31.6–60%; high = CIF &ge;60%.
+    IS is low days&thinsp;0–19, medium days&thinsp;20–89 and &ge;533, high days&thinsp;90–532.
+    ICH is medium day&thinsp;0 and days&thinsp;5–20, low days&thinsp;1–4, high day&thinsp;21+.
+  </p>
+</div>
+
+<script>
+const CIF = {
+  IS: {
+    days:   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,35,40,45,50,55,60,65,70,75,80,85,90,100,115,130,145,160,175,190,205,220,235,250,265,280,295,310,325,340,355,395,425,455,485,515,545,575,605,635,665,695,725,790,850,910,970,1030,1090,1150,1210,1270,1330,1390,1450,1510,1570,1630,1690,1750,1810],
+    cif1y:  [0.122486,0.092005,0.090546,0.094802,0.100966,0.107908,0.115178,0.122564,0.129954,0.137292,0.144545,0.151693,0.158724,0.165632,0.172411,0.179059,0.185577,0.191963,0.198220,0.204347,0.210349,0.216225,0.221980,0.227614,0.233131,0.238532,0.243822,0.249001,0.254072,0.259039,0.263903,0.286766,0.307404,0.326067,0.342975,0.358321,0.372271,0.384970,0.396547,0.407111,0.416761,0.425584,0.433654,0.447800,0.464838,0.477865,0.487732,0.495072,0.500364,0.503979,0.506205,0.507274,0.507369,0.506641,0.505213,0.503188,0.500656,0.497704,0.494409,0.490836,0.487036,0.476105,0.467417,0.458506,0.449499,0.440485,0.431531,0.422685,0.413983,0.405447,0.397097,0.388943,0.380993,0.364481,0.350106,0.336542,0.323755,0.311705,0.300349,0.289642,0.279543,0.270011,0.261007,0.252494,0.244438,0.236809,0.229577,0.222715,0.216198,0.210004,0.204110],
+    cif2y:  [0.157675,0.119044,0.117184,0.122606,0.130444,0.139251,0.148451,0.157773,0.167077,0.176289,0.185371,0.194299,0.203057,0.211639,0.220040,0.228258,0.236294,0.244149,0.251825,0.259325,0.266653,0.273812,0.280805,0.287637,0.294311,0.300832,0.307203,0.313427,0.319510,0.325454,0.331263,0.358406,0.382674,0.404427,0.423972,0.441575,0.457463,0.471831,0.484848,0.496659,0.507390,0.517152,0.526041,0.541527,0.560013,0.574024,0.584564,0.592363,0.597965,0.601780,0.604126,0.605250,0.605350,0.604584,0.603081,0.600947,0.598273,0.595151,0.591661,0.587866,0.583822,0.572138,0.562795,0.553164,0.543378,0.533534,0.523707,0.513950,0.504306,0.494803,0.485465,0.476307,0.467341,0.448605,0.432168,0.416554,0.401743,0.387704,0.374403,0.361801,0.349860,0.338540,0.327805,0.317618,0.307945,0.298753,0.290014,0.281698,0.273779,0.266232,0.259035],
+    cif3y:  [0.164808,0.124573,0.122634,0.128287,0.136456,0.145631,0.155210,0.164911,0.174585,0.184160,0.193593,0.202861,0.211948,0.220846,0.229551,0.238063,0.246381,0.254507,0.262443,0.270194,0.277762,0.285152,0.292368,0.299413,0.306293,0.313010,0.319570,0.325977,0.332234,0.338346,0.344316,0.372177,0.397034,0.419272,0.439217,0.457150,0.473310,0.487904,0.501107,0.513073,0.523932,0.533800,0.542777,0.558395,0.577003,0.591081,0.601656,0.609473,0.615082,0.618900,0.621247,0.622372,0.622472,0.621705,0.620202,0.618066,0.615390,0.612265,0.608769,0.604967,0.600913,0.589187,0.579801,0.570114,0.560260,0.550337,0.540421,0.530565,0.520812,0.511194,0.501732,0.492445,0.483345,0.464303,0.447570,0.431651,0.416530,0.402180,0.388568,0.375658,0.363412,0.351792,0.340763,0.330288,0.320334,0.310869,0.301863,0.293289,0.285118,0.277328,0.269894],
+    cif5y:  [0.179075,0.135631,0.133533,0.139649,0.148481,0.158392,0.168728,0.179185,0.189602,0.199901,0.210038,0.219985,0.229728,0.239259,0.248574,0.257672,0.266553,0.275222,0.283680,0.291931,0.299981,0.307833,0.315493,0.322966,0.330255,0.337367,0.344305,0.351075,0.357682,0.364130,0.370423,0.399718,0.425754,0.448961,0.469705,0.488298,0.505004,0.520049,0.533626,0.545901,0.557016,0.567097,0.576248,0.592130,0.610985,0.625196,0.635841,0.643692,0.649317,0.653141,0.655489,0.656614,0.656714,0.655948,0.654443,0.652306,0.649625,0.646493,0.642985,0.639168,0.635093,0.623287,0.613812,0.604013,0.594024,0.583943,0.573848,0.563794,0.553825,0.543975,0.534268,0.524723,0.515354,0.495698,0.478373,0.461845,0.446105,0.431132,0.416898,0.403370,0.390515,0.378295,0.366678,0.355628,0.345112,0.335101,0.325562,0.316470,0.307797,0.299519,0.291612],
+    cif10y: [0.190190,0.144292,0.142071,0.148543,0.157885,0.168359,0.179274,0.190306,0.201288,0.212135,0.222801,0.233259,0.243494,0.253497,0.263264,0.272797,0.282095,0.291162,0.300002,0.308619,0.317019,0.325206,0.333186,0.340965,0.348548,0.355941,0.363148,0.370176,0.377029,0.383712,0.390230,0.420515,0.447344,0.471188,0.492443,0.511445,0.528477,0.543783,0.557566,0.570004,0.581247,0.591426,0.600654,0.616634,0.635549,0.649765,0.660389,0.668210,0.673807,0.677608,0.679942,0.681059,0.681158,0.680397,0.678903,0.676778,0.674114,0.670998,0.667507,0.663705,0.659643,0.647857,0.638381,0.628563,0.618536,0.608402,0.598235,0.588093,0.578021,0.568054,0.558217,0.548531,0.539010,0.518994,0.501307,0.484395,0.468257,0.452875,0.438227,0.424283,0.411011,0.398378,0.386352,0.374898,0.363987,0.353586,0.343668,0.334204,0.325168,0.316537,0.308286]
+  },
+  ICH: {
+    days:   [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,35,40,45,50,55,60,65,70,75,80,85,90,100,115,130,145,160,175,190,205,220,235,250,265,280,295,310,325,340,355,395,425,455,485,515,545,575,605,635,665,695,725,790,850,910,970,1030,1090,1150,1210,1270,1330,1390,1450,1510,1570,1630,1690,1750,1810],
+    cif1y:  [0.282443,0.144740,0.138746,0.155797,0.178621,0.202207,0.224292,0.243911,0.261282,0.276771,0.290668,0.303210,0.314585,0.324950,0.334435,0.343146,0.351175,0.358599,0.365482,0.371882,0.377847,0.383419,0.388635,0.393527,0.398124,0.402451,0.406530,0.410382,0.414024,0.417472,0.420740,0.434806,0.445902,0.454829,0.462125,0.468162,0.473209,0.477462,0.481071,0.484151,0.486790,0.489060,0.491017,0.494168,0.497466,0.499566,0.500842,0.501538,0.501814,0.501781,0.501520,0.501087,0.500525,0.499863,0.499122,0.498320,0.497469,0.496581,0.495663,0.494722,0.493764,0.491158,0.489182,0.487207,0.485244,0.483301,0.481383,0.479494,0.477637,0.475813,0.474023,0.472266,0.470544,0.466927,0.463724,0.460646,0.457685,0.454835,0.452090,0.449444,0.446890,0.444423,0.442039,0.439733,0.437499,0.435334,0.433235,0.431197,0.429218,0.427295,0.425424],
+    cif2y:  [0.332717,0.173509,0.166443,0.186514,0.213242,0.240691,0.266232,0.288789,0.308655,0.326282,0.342028,0.356179,0.368967,0.380579,0.391170,0.400869,0.409784,0.418004,0.425608,0.432662,0.439221,0.445337,0.451050,0.456400,0.461418,0.466133,0.470572,0.474757,0.478709,0.482445,0.485982,0.501155,0.513066,0.522611,0.530387,0.536803,0.542155,0.546656,0.550470,0.553720,0.556501,0.558891,0.560949,0.564261,0.567720,0.569921,0.571258,0.571986,0.572274,0.572241,0.571967,0.571514,0.570925,0.570232,0.569456,0.568616,0.567724,0.566792,0.565829,0.564841,0.563836,0.561098,0.559020,0.556940,0.554872,0.552823,0.550799,0.548805,0.546842,0.544912,0.543017,0.541156,0.539330,0.535492,0.532088,0.528812,0.525657,0.522617,0.519686,0.516857,0.514124,0.511482,0.508925,0.506450,0.504050,0.501723,0.499464,0.497270,0.495137,0.493063,0.491044],
+    cif3y:  [0.347917,0.182544,0.175155,0.196134,0.224019,0.252596,0.279128,0.302512,0.323068,0.341277,0.357518,0.372093,0.385248,0.397178,0.408048,0.417992,0.427122,0.435535,0.443310,0.450517,0.457215,0.463454,0.469280,0.474731,0.479841,0.484641,0.489157,0.493413,0.497429,0.501224,0.504817,0.520207,0.532269,0.541924,0.549779,0.556256,0.561654,0.566191,0.570034,0.573306,0.576106,0.578510,0.580581,0.583910,0.587388,0.589598,0.590941,0.591673,0.591962,0.591928,0.591654,0.591199,0.590607,0.589911,0.589132,0.588287,0.587391,0.586455,0.585487,0.584494,0.583483,0.580730,0.578639,0.576547,0.574465,0.572403,0.570365,0.568356,0.566378,0.564433,0.562523,0.560647,0.558805,0.554933,0.551497,0.548189,0.545002,0.541930,0.538966,0.536105,0.533340,0.530666,0.528078,0.525571,0.523141,0.520783,0.518493,0.516269,0.514106,0.512002,0.509953],
+    cif5y:  [0.378318,0.200614,0.192578,0.215373,0.245575,0.276406,0.304920,0.329959,0.351895,0.371267,0.388498,0.403922,0.417809,0.430376,0.441803,0.452237,0.461800,0.470597,0.478715,0.486228,0.493201,0.499689,0.505739,0.511393,0.516688,0.521657,0.526326,0.530723,0.534868,0.538783,0.542485,0.558311,0.570676,0.580548,0.588564,0.595161,0.600651,0.605261,0.609160,0.612477,0.615314,0.617748,0.619843,0.623209,0.626722,0.628954,0.630309,0.631046,0.631339,0.631304,0.631027,0.630568,0.629972,0.629269,0.628483,0.627631,0.626726,0.625780,0.624802,0.623800,0.622778,0.619994,0.617879,0.615761,0.613653,0.611562,0.609496,0.607458,0.605450,0.603476,0.601535,0.599628,0.597755,0.593814,0.590315,0.586942,0.583691,0.580554,0.577526,0.574601,0.571772,0.569035,0.566384,0.563814,0.561322,0.558902,0.556552,0.554267,0.552044,0.549880,0.547773],
+    cif10y: [0.442755,0.240775,0.231375,0.257983,0.292963,0.328340,0.360751,0.388961,0.413478,0.434970,0.453959,0.470853,0.485978,0.499594,0.511915,0.523114,0.533336,0.542702,0.551313,0.559255,0.566603,0.573418,0.579755,0.585661,0.591178,0.596342,0.601185,0.605734,0.610014,0.614048,0.617855,0.634052,0.646614,0.656584,0.664640,0.671243,0.676719,0.681304,0.685172,0.688456,0.691259,0.693660,0.695725,0.699036,0.702484,0.704671,0.705997,0.706718,0.707004,0.706971,0.706700,0.706251,0.705667,0.704980,0.704210,0.703374,0.702488,0.701560,0.700600,0.699616,0.698612,0.695873,0.693790,0.691700,0.689618,0.687551,0.685505,0.683484,0.681492,0.679530,0.677598,0.675699,0.673832,0.669897,0.666394,0.663013,0.659747,0.656590,0.653538,0.650584,0.647724,0.644952,0.642263,0.639653,0.637118,0.634654,0.632258,0.629925,0.627654,0.625440,0.623282]
+  }
+};
+
+// ── Corrected Figure 4 definitions ──────────────────────────────────────────
+// Clinical zones are monotone. Risk categories are instantaneous and can be
+// non-contiguous because the 10-yr CIF curve can cross back below 60%.
+const PAPER_BOUNDS = {
+  IS:  { hasGreen: true,  acuteEnd: 19, unclearEnd: 89  },
+  ICH: { hasGreen: true,  acuteEnd: 4,  unclearEnd: 20  }
+};
+const RISK_SEGS = {
+  IS: [
+    {zone:"LOW", start:0, end:19},
+    {zone:"MED", start:20, end:89},
+    {zone:"HIGH", start:90, end:532},
+    {zone:"MED", start:533, end:null}
+  ],
+  ICH: [
+    {zone:"MED", start:0, end:0},
+    {zone:"LOW", start:1, end:4},
+    {zone:"MED", start:5, end:20},
+    {zone:"HIGH", start:21, end:null}
+  ]
+};
+
+const NNH_MIN = 19;  // LCS / PGB / ZNS (Brigo et al., Epilepsia 2026)
+
+function cifAtMonths(et, m) {
+  const kpts = [{m:12,key:'cif1y'},{m:24,key:'cif2y'},{m:36,key:'cif3y'},{m:60,key:'cif5y'},{m:120,key:'cif10y'}];
+  if (m < 12) return CIF[et].cif1y.map(v => v * m / 12);
+  m = Math.max(12, Math.min(120, m));
+  let lo = kpts[0], hi = kpts[4];
+  for (let i = 0; i < 4; i++) { if (m >= kpts[i].m && m <= kpts[i+1].m) { lo = kpts[i]; hi = kpts[i+1]; break; } }
+  if (lo.m === hi.m) return CIF[et][lo.key].slice();
+  const t = (m - lo.m) / (hi.m - lo.m);
+  const A = CIF[et][lo.key], B = CIF[et][hi.key];
+  return A.map((a, i) => a + t * (B[i] - a));
+}
+
+function interpAtMonths(day, et, m) {
+  const ys = cifAtMonths(et, m), xs = CIF[et].days;
+  const d = Math.max(0, Math.min(1810, day));
+  let i = xs.findIndex(x => x >= d);
+  if (i <= 0) return ys[0];
+  if (i >= xs.length) return ys[ys.length - 1];
+  const t = (d - xs[i-1]) / (xs[i] - xs[i-1]);
+  return ys[i-1] + t * (ys[i] - ys[i-1]);
+}
+
+function getWins(et){
+  const b = PAPER_BOUNDS[et];
+  return { hasGreen: b.hasGreen, acuteEnd: b.acuteEnd, unclearEnd: b.unclearEnd };
+}
+function riskSeg(day, et){
+  return RISK_SEGS[et].find(s => day >= s.start && (s.end === null || day <= s.end));
+}
+function riskSegLabel(seg){
+  if(!seg) return "unknown";
+  if(seg.zone === "LOW") return "low";
+  if(seg.zone === "MED") return "medium";
+  return "high";
+}
+function riskSegSummary(et){
+  if(et === "IS") return "low 0-19d; medium 20-89d and >=533d; high 90-532d";
+  return "medium day 0 and 5-20d; low 1-4d; high >=21d";
+}
+
+function hzLabel(m) {
+  if (m % 12 === 0) { const y = m / 12; return y === 1 ? '1 year' : y + ' years'; }
+  if (m < 12) return m + ' months';
+  const y = Math.floor(m / 12), mo = m % 12;
+  return (y === 1 ? '1 year' : y + ' years') + ' and ' + mo + ' months';
+}
+
+// AFT/RMTL modifiers — recurrent-seizure timing model, nonnegative FU QC.
+// TR > 1 = recurrent seizure later; TR < 1 = recurrent seizure earlier.
+const MODS = {
+  IS: [
+    {name:"Male sex",cat:"Demographics",sig:"s",dir:"later",note:"AFT TR\u20091.76 [1.10\u20132.81], p\u2009=\u20090.018; RMTL \u221219.7 d/y, p\u2009=\u20090.12"},
+    {name:"Age \u2265\u200965 years",cat:"Demographics",sig:"ns",dir:"later",note:"AFT TR\u20091.45 [0.92\u20132.29], p\u2009=\u20090.11; RMTL \u221220.0 d/y, p\u2009=\u20090.11"},
+    {name:"NIHSS middle",cat:"Clinical severity",sig:"ns",dir:"later",note:"AFT TR\u20091.19 [0.66\u20132.15], p\u2009=\u20090.56; RMTL \u22124.0 d/y, p\u2009=\u20090.81"},
+    {name:"NIHSS high",cat:"Clinical severity",sig:"ns",dir:"earlier",note:"AFT TR\u20090.93 [0.52\u20131.67], p\u2009=\u20090.82; RMTL 6.8 d/y, p\u2009=\u20090.67"},
+    {name:"Large-artery atherosclerosis",cat:"Stroke subtype",sig:"ns",dir:"earlier",note:"AFT TR\u20090.94 [0.55\u20131.60], p\u2009=\u20090.82; RMTL 7.4 d/y, p\u2009=\u20090.63"},
+    {name:"Cardioembolic mechanism",cat:"Stroke subtype",sig:"s",dir:"later",note:"AFT TR\u20092.07 [1.17\u20133.68], p\u2009=\u20090.013; RMTL \u221239.3 d/y, p\u2009=\u20090.007"},
+    {name:"Small-vessel disease",cat:"Stroke subtype",sig:"ns",dir:"earlier",note:"AFT TR\u20090.54 [0.22\u20131.32], p\u2009=\u20090.17; RMTL 23.2 d/y, p\u2009=\u20090.37"},
+    {name:"MCA territory",cat:"Imaging",sig:"ns",dir:"earlier",note:"AFT TR\u20090.89 [0.49\u20131.61], p\u2009=\u20090.70; RMTL 8.8 d/y, p\u2009=\u20090.57"},
+    {name:"Cortical involvement",cat:"Imaging",sig:"s",dir:"earlier",note:"AFT TR\u20090.53 [0.28\u20131.00], p\u2009=\u20090.050; RMTL 28.3 d/y, p\u2009=\u20090.073"},
+    {name:"Reperfusion therapy",cat:"Acute treatment",sig:"ds",dir:"later",note:"AFT TR\u20092.13 [1.31\u20133.46], p\u2009=\u20090.002; RMTL \u221225.6 d/y, p\u2009=\u20090.049"},
+    {name:"Early / acute symptomatic seizure",cat:"Seizure characteristics",sig:"ds",dir:"later",note:"AFT TR\u20097.90 [4.73\u201313.21], p\u2009<\u20090.001; RMTL \u221296.8 d/y, p\u2009<\u20090.001"}
+  ],
+  ICH: [
+    {name:"Male sex",cat:"Demographics",sig:"ns",dir:"earlier",note:"AFT TR\u20090.85 [0.52\u20131.38], p\u2009=\u20090.51; RMTL 7.7 d/y, p\u2009=\u20090.58"},
+    {name:"Age \u2265\u200965 years",cat:"Demographics",sig:"ds",dir:"later",note:"AFT TR\u20092.19 [1.31\u20133.67], p\u2009=\u20090.003; RMTL \u221261.7 d/y, p\u2009<\u20090.001"},
+    {name:"NIHSS middle",cat:"Clinical severity",sig:"ns",dir:"earlier",note:"AFT TR\u20090.72 [0.36\u20131.42], p\u2009=\u20090.34; RMTL 7.3 d/y, p\u2009=\u20090.71"},
+    {name:"NIHSS high",cat:"Clinical severity",sig:"ns",dir:"earlier",note:"AFT TR\u20090.69 [0.39\u20131.23], p\u2009=\u20090.21; RMTL \u22123.2 d/y, p\u2009=\u20090.85"},
+    {name:"Lobar ICH",cat:"Imaging",sig:"ds",dir:"earlier",note:"AFT TR\u20090.40 [0.23\u20130.70], p\u2009=\u20090.001; RMTL 58.8 d/y, p\u2009<\u20090.001"},
+    {name:"ICH volume >10 mL",cat:"Imaging",sig:"tr",dir:"later",note:"AFT TR\u20091.60 [0.95\u20132.68], p\u2009=\u20090.075; RMTL \u221228.1 d/y, p\u2009=\u20090.060"},
+    {name:"Neurosurgical intervention",cat:"Treatment",sig:"s",dir:"earlier",note:"AFT TR\u20090.52 [0.29\u20130.91], p\u2009=\u20090.023; RMTL 51.1 d/y, p\u2009=\u20090.011"},
+    {name:"Early / acute symptomatic seizure",cat:"Seizure characteristics",sig:"ds",dir:"later",note:"AFT TR\u20094.47 [2.74\u20137.31], p\u2009<\u20090.001; RMTL \u221298.3 d/y, p\u2009<\u20090.001"}
+  ]
+};
+
+const MORT = {"source":"SeLECT-RS aligned master mortality model output","label":"10-year all-cause mortality CIF; Fine-Gray IPW, recurrence as competing event","IS":[{"day":0,"cif10y":0.366158,"lo10y":0.278407,"hi10y":0.471199},{"day":1,"cif10y":0.190242,"lo10y":0.106476,"hi10y":0.326677},{"day":2,"cif10y":0.188095,"lo10y":0.105236,"hi10y":0.323265},{"day":3,"cif10y":0.208797,"lo10y":0.123703,"hi10y":0.339905},{"day":4,"cif10y":0.234631,"lo10y":0.143972,"hi10y":0.36869},{"day":5,"cif10y":0.260459,"lo10y":0.16113,"hi10y":0.404377},{"day":6,"cif10y":0.284164,"lo10y":0.174524,"hi10y":0.441613},{"day":7,"cif10y":0.304815,"lo10y":0.184932,"hi10y":0.476099},{"day":8,"cif10y":0.322201,"lo10y":0.193276,"hi10y":0.505502},{"day":9,"cif10y":0.336824,"lo10y":0.200316,"hi10y":0.529811},{"day":10,"cif10y":0.349206,"lo10y":0.206491,"hi10y":0.549682},{"day":11,"cif10y":0.359751,"lo10y":0.212046,"hi10y":0.565819},{"day":12,"cif10y":0.368776,"lo10y":0.217126,"hi10y":0.578861},{"day":13,"cif10y":0.37653,"lo10y":0.221822,"hi10y":0.589348},{"day":14,"cif10y":0.383215,"lo10y":0.226193,"hi10y":0.59773},{"day":15,"cif10y":0.388992,"lo10y":0.230284,"hi10y":0.604371},{"day":16,"cif10y":0.393994,"lo10y":0.234124,"hi10y":0.609571},{"day":17,"cif10y":0.398329,"lo10y":0.237737,"hi10y":0.61357},{"day":18,"cif10y":0.402088,"lo10y":0.241144,"hi10y":0.616567},{"day":19,"cif10y":0.405346,"lo10y":0.244359,"hi10y":0.618725},{"day":20,"cif10y":0.408167,"lo10y":0.247394,"hi10y":0.620176},{"day":21,"cif10y":0.410605,"lo10y":0.250263,"hi10y":0.621033},{"day":22,"cif10y":0.412704,"lo10y":0.252973,"hi10y":0.621386},{"day":23,"cif10y":0.414506,"lo10y":0.255534,"hi10y":0.621315},{"day":24,"cif10y":0.416043,"lo10y":0.257953,"hi10y":0.620883},{"day":25,"cif10y":0.417344,"lo10y":0.260238,"hi10y":0.620146},{"day":26,"cif10y":0.418436,"lo10y":0.262395,"hi10y":0.61915},{"day":27,"cif10y":0.41934,"lo10y":0.264429,"hi10y":0.617936},{"day":28,"cif10y":0.420076,"lo10y":0.266347,"hi10y":0.616538},{"day":29,"cif10y":0.42066,"lo10y":0.268152,"hi10y":0.614985},{"day":30,"cif10y":0.421109,"lo10y":0.269851,"hi10y":0.613302},{"day":31,"cif10y":0.421434,"lo10y":0.271447,"hi10y":0.611511},{"day":38,"cif10y":0.421128,"lo10y":0.280064,"hi10y":0.597271},{"day":45,"cif10y":0.417947,"lo10y":0.284985,"hi10y":0.582355},{"day":52,"cif10y":0.413259,"lo10y":0.287071,"hi10y":0.56834},{"day":59,"cif10y":0.407786,"lo10y":0.286991,"hi10y":0.555755},{"day":66,"cif10y":0.401931,"lo10y":0.285286,"hi10y":0.544676},{"day":73,"cif10y":0.395928,"lo10y":0.282394,"hi10y":0.534982},{"day":80,"cif10y":0.389917,"lo10y":0.278666,"hi10y":0.526482},{"day":87,"cif10y":0.383982,"lo10y":0.274382,"hi10y":0.518971},{"day":94,"cif10y":0.378173,"lo10y":0.269755,"hi10y":0.512261},{"day":101,"cif10y":0.372519,"lo10y":0.264948,"hi10y":0.50619},{"day":108,"cif10y":0.367035,"lo10y":0.26008,"hi10y":0.500623},{"day":115,"cif10y":0.36173,"lo10y":0.255238,"hi10y":0.495452},{"day":122,"cif10y":0.356605,"lo10y":0.250483,"hi10y":0.490593},{"day":129,"cif10y":0.351658,"lo10y":0.245854,"hi10y":0.485979},{"day":136,"cif10y":0.346886,"lo10y":0.24138,"hi10y":0.481559},{"day":143,"cif10y":0.342283,"lo10y":0.237075,"hi10y":0.477294},{"day":150,"cif10y":0.337843,"lo10y":0.232947,"hi10y":0.473152},{"day":157,"cif10y":0.333559,"lo10y":0.229001,"hi10y":0.469112},{"day":164,"cif10y":0.329425,"lo10y":0.225234,"hi10y":0.465156},{"day":171,"cif10y":0.325434,"lo10y":0.221643,"hi10y":0.461271},{"day":178,"cif10y":0.32158,"lo10y":0.218223,"hi10y":0.457447},{"day":181,"cif10y":0.319968,"lo10y":0.216808,"hi10y":0.455825},{"day":211,"cif10y":0.305065,"lo10y":0.204181,"hi10y":0.44007},{"day":241,"cif10y":0.292074,"lo10y":0.193914,"hi10y":0.425056},{"day":271,"cif10y":0.280647,"lo10y":0.185471,"hi10y":0.410761},{"day":301,"cif10y":0.270509,"lo10y":0.17841,"hi10y":0.39724},{"day":331,"cif10y":0.261433,"lo10y":0.172344,"hi10y":0.384608},{"day":361,"cif10y":0.253238,"lo10y":0.166982,"hi10y":0.372942},{"day":391,"cif10y":0.245786,"lo10y":0.162122,"hi10y":0.362269},{"day":421,"cif10y":0.238968,"lo10y":0.157621,"hi10y":0.35258},{"day":451,"cif10y":0.232696,"lo10y":0.15338,"hi10y":0.343844},{"day":481,"cif10y":0.226899,"lo10y":0.149327,"hi10y":0.336016},{"day":511,"cif10y":0.221519,"lo10y":0.145414,"hi10y":0.329041},{"day":541,"cif10y":0.216506,"lo10y":0.141609,"hi10y":0.322859},{"day":571,"cif10y":0.21182,"lo10y":0.137892,"hi10y":0.317408},{"day":601,"cif10y":0.207427,"lo10y":0.134251,"hi10y":0.312627},{"day":631,"cif10y":0.203295,"lo10y":0.130679,"hi10y":0.308456},{"day":661,"cif10y":0.1994,"lo10y":0.127176,"hi10y":0.304837},{"day":691,"cif10y":0.195719,"lo10y":0.123743,"hi10y":0.301718},{"day":721,"cif10y":0.192234,"lo10y":0.120381,"hi10y":0.299047},{"day":731,"cif10y":0.191112,"lo10y":0.119276,"hi10y":0.298248},{"day":821,"cif10y":0.181822,"lo10y":0.109729,"hi10y":0.292823},{"day":911,"cif10y":0.173752,"lo10y":0.100933,"hi10y":0.289917},{"day":1001,"cif10y":0.166654,"lo10y":0.092914,"hi10y":0.288809},{"day":1091,"cif10y":0.160345,"lo10y":0.085658,"hi10y":0.288989},{"day":1181,"cif10y":0.154689,"lo10y":0.079119,"hi10y":0.2901},{"day":1271,"cif10y":0.149579,"lo10y":0.073237,"hi10y":0.291891},{"day":1361,"cif10y":0.144933,"lo10y":0.067949,"hi10y":0.294182},{"day":1451,"cif10y":0.140685,"lo10y":0.063191,"hi10y":0.296842},{"day":1541,"cif10y":0.136779,"lo10y":0.058903,"hi10y":0.299777},{"day":1631,"cif10y":0.133173,"lo10y":0.055031,"hi10y":0.302916},{"day":1721,"cif10y":0.129831,"lo10y":0.051527,"hi10y":0.306206},{"day":1811,"cif10y":0.126721,"lo10y":0.048348,"hi10y":0.309606},{"day":1901,"cif10y":0.123817,"lo10y":0.045458,"hi10y":0.313086},{"day":1991,"cif10y":0.121099,"lo10y":0.042823,"hi10y":0.316621},{"day":2081,"cif10y":0.118547,"lo10y":0.040416,"hi10y":0.320192},{"day":2171,"cif10y":0.116145,"lo10y":0.038211,"hi10y":0.323784},{"day":2261,"cif10y":0.113879,"lo10y":0.036187,"hi10y":0.327386},{"day":2351,"cif10y":0.111736,"lo10y":0.034324,"hi10y":0.330988},{"day":2441,"cif10y":0.109706,"lo10y":0.032606,"hi10y":0.334581},{"day":2531,"cif10y":0.107779,"lo10y":0.031019,"hi10y":0.338161},{"day":2621,"cif10y":0.105948,"lo10y":0.02955,"hi10y":0.341723},{"day":2711,"cif10y":0.104203,"lo10y":0.028187,"hi10y":0.345262},{"day":2801,"cif10y":0.10254,"lo10y":0.02692,"hi10y":0.348775},{"day":2891,"cif10y":0.100951,"lo10y":0.025741,"hi10y":0.35226},{"day":2981,"cif10y":0.099431,"lo10y":0.024641,"hi10y":0.355715},{"day":3071,"cif10y":0.097976,"lo10y":0.023613,"hi10y":0.359138}],"ICH":[{"day":0,"cif10y":0.26879,"lo10y":0.173684,"hi10y":0.401723},{"day":1,"cif10y":0.631349,"lo10y":0.527827,"hi10y":0.734735},{"day":2,"cif10y":0.66105,"lo10y":0.563694,"hi10y":0.756165},{"day":3,"cif10y":0.60145,"lo10y":0.50245,"hi10y":0.702487},{"day":4,"cif10y":0.535277,"lo10y":0.41975,"hi10y":0.660028},{"day":5,"cif10y":0.48207,"lo10y":0.352863,"hi10y":0.630134},{"day":6,"cif10y":0.443781,"lo10y":0.307245,"hi10y":0.608346},{"day":7,"cif10y":0.415891,"lo10y":0.276166,"hi10y":0.591177},{"day":8,"cif10y":0.394899,"lo10y":0.254273,"hi10y":0.576902},{"day":9,"cif10y":0.378673,"lo10y":0.238393,"hi10y":0.564669},{"day":10,"cif10y":0.365859,"lo10y":0.226596,"hi10y":0.553985},{"day":11,"cif10y":0.355559,"lo10y":0.217667,"hi10y":0.544529},{"day":12,"cif10y":0.347158,"lo10y":0.210813,"hi10y":0.536076},{"day":13,"cif10y":0.340221,"lo10y":0.205497,"hi10y":0.528461},{"day":14,"cif10y":0.334435,"lo10y":0.201343,"hi10y":0.521559},{"day":15,"cif10y":0.329564,"lo10y":0.198086,"hi10y":0.515271},{"day":16,"cif10y":0.325435,"lo10y":0.195528,"hi10y":0.509519},{"day":17,"cif10y":0.32191,"lo10y":0.193523,"hi10y":0.504237},{"day":18,"cif10y":0.318885,"lo10y":0.191961,"hi10y":0.499373},{"day":19,"cif10y":0.316276,"lo10y":0.190756,"hi10y":0.494882},{"day":20,"cif10y":0.314016,"lo10y":0.18984,"hi10y":0.490725},{"day":21,"cif10y":0.312052,"lo10y":0.18916,"hi10y":0.48687},{"day":22,"cif10y":0.310339,"lo10y":0.188674,"hi10y":0.483289},{"day":23,"cif10y":0.308841,"lo10y":0.188347,"hi10y":0.479957},{"day":24,"cif10y":0.307529,"lo10y":0.188152,"hi10y":0.476853},{"day":25,"cif10y":0.306376,"lo10y":0.188064,"hi10y":0.473957},{"day":26,"cif10y":0.305362,"lo10y":0.188066,"hi10y":0.471253},{"day":27,"cif10y":0.304468,"lo10y":0.18814,"hi10y":0.468727},{"day":28,"cif10y":0.30368,"lo10y":0.188275,"hi10y":0.466364},{"day":29,"cif10y":0.302985,"lo10y":0.188458,"hi10y":0.464153},{"day":30,"cif10y":0.30237,"lo10y":0.18868,"hi10y":0.462082},{"day":31,"cif10y":0.301827,"lo10y":0.188934,"hi10y":0.460142},{"day":38,"cif10y":0.299434,"lo10y":0.191129,"hi10y":0.449561},{"day":45,"cif10y":0.298441,"lo10y":0.193311,"hi10y":0.442809},{"day":52,"cif10y":0.298042,"lo10y":0.195037,"hi10y":0.438542},{"day":59,"cif10y":0.297861,"lo10y":0.19621,"hi10y":0.435903},{"day":66,"cif10y":0.297713,"lo10y":0.196863,"hi10y":0.43432},{"day":73,"cif10y":0.297505,"lo10y":0.19707,"hi10y":0.433401},{"day":80,"cif10y":0.297191,"lo10y":0.196913,"hi10y":0.432874},{"day":87,"cif10y":0.296752,"lo10y":0.196466,"hi10y":0.432549},{"day":94,"cif10y":0.29618,"lo10y":0.195794,"hi10y":0.432294},{"day":101,"cif10y":0.295478,"lo10y":0.194948,"hi10y":0.432021},{"day":108,"cif10y":0.29465,"lo10y":0.193969,"hi10y":0.431668},{"day":115,"cif10y":0.293705,"lo10y":0.192891,"hi10y":0.431198},{"day":122,"cif10y":0.29265,"lo10y":0.191737,"hi10y":0.430585},{"day":129,"cif10y":0.291496,"lo10y":0.190528,"hi10y":0.429816},{"day":136,"cif10y":0.290249,"lo10y":0.189278,"hi10y":0.428887},{"day":143,"cif10y":0.28892,"lo10y":0.188,"hi10y":0.427796},{"day":150,"cif10y":0.287515,"lo10y":0.186703,"hi10y":0.426546},{"day":157,"cif10y":0.286041,"lo10y":0.185392,"hi10y":0.425145},{"day":164,"cif10y":0.284507,"lo10y":0.184073,"hi10y":0.423599},{"day":171,"cif10y":0.282918,"lo10y":0.182749,"hi10y":0.421917},{"day":178,"cif10y":0.281279,"lo10y":0.181425,"hi10y":0.420109},{"day":181,"cif10y":0.280563,"lo10y":0.180857,"hi10y":0.419297},{"day":211,"cif10y":0.273052,"lo10y":0.175209,"hi10y":0.41019},{"day":241,"cif10y":0.265226,"lo10y":0.169656,"hi10y":0.400038},{"day":271,"cif10y":0.257417,"lo10y":0.164217,"hi10y":0.389687},{"day":301,"cif10y":0.249796,"lo10y":0.158882,"hi10y":0.379618},{"day":331,"cif10y":0.24245,"lo10y":0.153642,"hi10y":0.370094},{"day":361,"cif10y":0.235419,"lo10y":0.148494,"hi10y":0.361244},{"day":391,"cif10y":0.228714,"lo10y":0.143439,"hi10y":0.353115},{"day":421,"cif10y":0.222335,"lo10y":0.138484,"hi10y":0.345706},{"day":451,"cif10y":0.216272,"lo10y":0.133636,"hi10y":0.33899},{"day":481,"cif10y":0.210511,"lo10y":0.128904,"hi10y":0.332923},{"day":511,"cif10y":0.205037,"lo10y":0.124299,"hi10y":0.327452},{"day":541,"cif10y":0.199833,"lo10y":0.119828,"hi10y":0.322526},{"day":571,"cif10y":0.194883,"lo10y":0.115497,"hi10y":0.318091},{"day":601,"cif10y":0.190171,"lo10y":0.111313,"hi10y":0.314098},{"day":631,"cif10y":0.185681,"lo10y":0.107277,"hi10y":0.310501},{"day":661,"cif10y":0.181399,"lo10y":0.103392,"hi10y":0.307257},{"day":691,"cif10y":0.177313,"lo10y":0.099658,"hi10y":0.304328},{"day":721,"cif10y":0.173409,"lo10y":0.096073,"hi10y":0.301682},{"day":731,"cif10y":0.172147,"lo10y":0.094911,"hi10y":0.300857},{"day":821,"cif10y":0.161573,"lo10y":0.085167,"hi10y":0.294531},{"day":911,"cif10y":0.15225,"lo10y":0.076631,"hi10y":0.289782},{"day":1001,"cif10y":0.143968,"lo10y":0.069169,"hi10y":0.286178},{"day":1091,"cif10y":0.136564,"lo10y":0.062647,"hi10y":0.28342},{"day":1181,"cif10y":0.129903,"lo10y":0.056935,"hi10y":0.2813},{"day":1271,"cif10y":0.123879,"lo10y":0.051922,"hi10y":0.279665},{"day":1361,"cif10y":0.118404,"lo10y":0.047507,"hi10y":0.278408},{"day":1451,"cif10y":0.113406,"lo10y":0.043605,"hi10y":0.277447},{"day":1541,"cif10y":0.108824,"lo10y":0.040146,"hi10y":0.276723},{"day":1631,"cif10y":0.104608,"lo10y":0.037067,"hi10y":0.276187},{"day":1721,"cif10y":0.100715,"lo10y":0.034318,"hi10y":0.275806},{"day":1811,"cif10y":0.097109,"lo10y":0.031855,"hi10y":0.275551},{"day":1901,"cif10y":0.093759,"lo10y":0.02964,"hi10y":0.2754},{"day":1991,"cif10y":0.09064,"lo10y":0.027643,"hi10y":0.275335},{"day":2081,"cif10y":0.087726,"lo10y":0.025836,"hi10y":0.275342},{"day":2171,"cif10y":0.084999,"lo10y":0.024197,"hi10y":0.27541},{"day":2261,"cif10y":0.082442,"lo10y":0.022706,"hi10y":0.275529},{"day":2351,"cif10y":0.080037,"lo10y":0.021346,"hi10y":0.27569},{"day":2441,"cif10y":0.077773,"lo10y":0.020102,"hi10y":0.275888},{"day":2531,"cif10y":0.075637,"lo10y":0.018962,"hi10y":0.276117},{"day":2621,"cif10y":0.073619,"lo10y":0.017915,"hi10y":0.276373},{"day":2711,"cif10y":0.071708,"lo10y":0.01695,"hi10y":0.276651},{"day":2801,"cif10y":0.069897,"lo10y":0.016061,"hi10y":0.276948},{"day":2891,"cif10y":0.068177,"lo10y":0.015238,"hi10y":0.277262},{"day":2981,"cif10y":0.066543,"lo10y":0.014477,"hi10y":0.277589},{"day":3071,"cif10y":0.064987,"lo10y":0.01377,"hi10y":0.277928},{"day":3161,"cif10y":0.063504,"lo10y":0.013113,"hi10y":0.278278},{"day":3251,"cif10y":0.06209,"lo10y":0.012502,"hi10y":0.278636},{"day":3341,"cif10y":0.060739,"lo10y":0.011932,"hi10y":0.279001},{"day":3431,"cif10y":0.059447,"lo10y":0.011399,"hi10y":0.279372},{"day":3521,"cif10y":0.058211,"lo10y":0.010901,"hi10y":0.279748},{"day":3611,"cif10y":0.057027,"lo10y":0.010435,"hi10y":0.280128}],"SAH":[{"day":0,"cif10y":0.199778,"lo10y":0.141915,"hi10y":0.277131},{"day":1,"cif10y":0.246017,"lo10y":0.087391,"hi10y":0.581882},{"day":2,"cif10y":0.232746,"lo10y":0.107434,"hi10y":0.460755},{"day":3,"cif10y":0.227023,"lo10y":0.102278,"hi10y":0.459127},{"day":4,"cif10y":0.224084,"lo10y":0.097134,"hi10y":0.467381},{"day":5,"cif10y":0.222393,"lo10y":0.094388,"hi10y":0.471735},{"day":6,"cif10y":0.221324,"lo10y":0.093253,"hi10y":0.472327},{"day":7,"cif10y":0.220581,"lo10y":0.09302,"hi10y":0.470638},{"day":8,"cif10y":0.220012,"lo10y":0.093244,"hi10y":0.467818},{"day":9,"cif10y":0.219535,"lo10y":0.09366,"hi10y":0.4646},{"day":10,"cif10y":0.219102,"lo10y":0.094112,"hi10y":0.461413},{"day":11,"cif10y":0.218686,"lo10y":0.094513,"hi10y":0.458492},{"day":12,"cif10y":0.21827,"lo10y":0.094815,"hi10y":0.455949},{"day":13,"cif10y":0.217845,"lo10y":0.094996,"hi10y":0.453822},{"day":14,"cif10y":0.217405,"lo10y":0.095052,"hi10y":0.452105},{"day":15,"cif10y":0.216947,"lo10y":0.094987,"hi10y":0.450769},{"day":16,"cif10y":0.21647,"lo10y":0.094811,"hi10y":0.449769},{"day":17,"cif10y":0.215974,"lo10y":0.094538,"hi10y":0.449058},{"day":18,"cif10y":0.215458,"lo10y":0.094181,"hi10y":0.448587},{"day":19,"cif10y":0.214924,"lo10y":0.093755,"hi10y":0.448309},{"day":20,"cif10y":0.214373,"lo10y":0.093273,"hi10y":0.448181},{"day":21,"cif10y":0.213806,"lo10y":0.092746,"hi10y":0.448163},{"day":22,"cif10y":0.213223,"lo10y":0.092187,"hi10y":0.448223},{"day":23,"cif10y":0.212626,"lo10y":0.091604,"hi10y":0.44833},{"day":24,"cif10y":0.212016,"lo10y":0.091005,"hi10y":0.448458},{"day":25,"cif10y":0.211394,"lo10y":0.090398,"hi10y":0.448586},{"day":26,"cif10y":0.210762,"lo10y":0.089788,"hi10y":0.448698},{"day":27,"cif10y":0.210122,"lo10y":0.08918,"hi10y":0.448785},{"day":28,"cif10y":0.209477,"lo10y":0.088577,"hi10y":0.448841},{"day":29,"cif10y":0.208827,"lo10y":0.087983,"hi10y":0.44886},{"day":30,"cif10y":0.208176,"lo10y":0.087398,"hi10y":0.448841},{"day":31,"cif10y":0.207522,"lo10y":0.086824,"hi10y":0.44878},{"day":38,"cif10y":0.202984,"lo10y":0.083174,"hi10y":0.447205},{"day":45,"cif10y":0.19862,"lo10y":0.080155,"hi10y":0.443894},{"day":52,"cif10y":0.194495,"lo10y":0.07766,"hi10y":0.439353},{"day":59,"cif10y":0.190622,"lo10y":0.075574,"hi10y":0.434014},{"day":66,"cif10y":0.186991,"lo10y":0.073804,"hi10y":0.428192},{"day":73,"cif10y":0.183583,"lo10y":0.072278,"hi10y":0.422107},{"day":80,"cif10y":0.180382,"lo10y":0.070945,"hi10y":0.415912},{"day":87,"cif10y":0.177368,"lo10y":0.069763,"hi10y":0.409711},{"day":94,"cif10y":0.174524,"lo10y":0.068705,"hi10y":0.403577},{"day":101,"cif10y":0.171836,"lo10y":0.067745,"hi10y":0.397556},{"day":108,"cif10y":0.169288,"lo10y":0.066866,"hi10y":0.391683},{"day":115,"cif10y":0.166869,"lo10y":0.066055,"hi10y":0.385977},{"day":122,"cif10y":0.164569,"lo10y":0.0653,"hi10y":0.380452},{"day":129,"cif10y":0.162376,"lo10y":0.064591,"hi10y":0.375115},{"day":136,"cif10y":0.160284,"lo10y":0.063922,"hi10y":0.369967},{"day":143,"cif10y":0.158283,"lo10y":0.063287,"hi10y":0.36501},{"day":150,"cif10y":0.156367,"lo10y":0.06268,"hi10y":0.360241},{"day":157,"cif10y":0.15453,"lo10y":0.062098,"hi10y":0.355657},{"day":164,"cif10y":0.152767,"lo10y":0.061538,"hi10y":0.351253},{"day":171,"cif10y":0.151071,"lo10y":0.060996,"hi10y":0.347023},{"day":178,"cif10y":0.149439,"lo10y":0.06047,"hi10y":0.342962},{"day":181,"cif10y":0.148758,"lo10y":0.060249,"hi10y":0.341272},{"day":211,"cif10y":0.142489,"lo10y":0.058155,"hi10y":0.325914},{"day":241,"cif10y":0.137042,"lo10y":0.056214,"hi10y":0.313041},{"day":271,"cif10y":0.132244,"lo10y":0.054374,"hi10y":0.302238},{"day":301,"cif10y":0.127969,"lo10y":0.052608,"hi10y":0.293157},{"day":331,"cif10y":0.124124,"lo10y":0.050905,"hi10y":0.28551},{"day":361,"cif10y":0.120638,"lo10y":0.049257,"hi10y":0.279063},{"day":391,"cif10y":0.117457,"lo10y":0.047662,"hi10y":0.273623},{"day":421,"cif10y":0.114535,"lo10y":0.046119,"hi10y":0.269033},{"day":451,"cif10y":0.111839,"lo10y":0.044628,"hi10y":0.265165},{"day":481,"cif10y":0.10934,"lo10y":0.043189,"hi10y":0.261911},{"day":511,"cif10y":0.107013,"lo10y":0.041802,"hi10y":0.259183},{"day":541,"cif10y":0.104839,"lo10y":0.040467,"hi10y":0.256906},{"day":571,"cif10y":0.102801,"lo10y":0.039183,"hi10y":0.255018},{"day":601,"cif10y":0.100886,"lo10y":0.03795,"hi10y":0.253468},{"day":631,"cif10y":0.09908,"lo10y":0.036765,"hi10y":0.25221},{"day":661,"cif10y":0.097374,"lo10y":0.035629,"hi10y":0.251208},{"day":691,"cif10y":0.095758,"lo10y":0.034539,"hi10y":0.25043},{"day":721,"cif10y":0.094224,"lo10y":0.033494,"hi10y":0.249847},{"day":731,"cif10y":0.09373,"lo10y":0.033156,"hi10y":0.249692},{"day":821,"cif10y":0.089623,"lo10y":0.030315,"hi10y":0.249042},{"day":911,"cif10y":0.086035,"lo10y":0.027813,"hi10y":0.249436},{"day":1001,"cif10y":0.082863,"lo10y":0.025606,"hi10y":0.250568},{"day":1091,"cif10y":0.08003,"lo10y":0.023654,"hi10y":0.25223},{"day":1181,"cif10y":0.077478,"lo10y":0.021922,"hi10y":0.254277},{"day":1271,"cif10y":0.075163,"lo10y":0.02038,"hi10y":0.256606},{"day":1361,"cif10y":0.07305,"lo10y":0.019001,"hi10y":0.259144},{"day":1451,"cif10y":0.07111,"lo10y":0.017764,"hi10y":0.261834},{"day":1541,"cif10y":0.069321,"lo10y":0.01665,"hi10y":0.264636},{"day":1631,"cif10y":0.067664,"lo10y":0.015644,"hi10y":0.267519},{"day":1721,"cif10y":0.066122,"lo10y":0.014731,"hi10y":0.27046},{"day":1811,"cif10y":0.064684,"lo10y":0.013901,"hi10y":0.27344},{"day":1901,"cif10y":0.063337,"lo10y":0.013144,"hi10y":0.276445},{"day":1991,"cif10y":0.062073,"lo10y":0.012451,"hi10y":0.279464},{"day":2081,"cif10y":0.060882,"lo10y":0.011815,"hi10y":0.282488},{"day":2171,"cif10y":0.059759,"lo10y":0.011231,"hi10y":0.28551},{"day":2261,"cif10y":0.058697,"lo10y":0.010691,"hi10y":0.288526},{"day":2351,"cif10y":0.05769,"lo10y":0.010193,"hi10y":0.29153},{"day":2441,"cif10y":0.056734,"lo10y":0.009731,"hi10y":0.294519},{"day":2531,"cif10y":0.055825,"lo10y":0.009302,"hi10y":0.297491},{"day":2621,"cif10y":0.054958,"lo10y":0.008903,"hi10y":0.300443},{"day":2711,"cif10y":0.054132,"lo10y":0.008531,"hi10y":0.303373},{"day":2801,"cif10y":0.053342,"lo10y":0.008183,"hi10y":0.306281},{"day":2891,"cif10y":0.052585,"lo10y":0.007859,"hi10y":0.309166},{"day":2981,"cif10y":0.051861,"lo10y":0.007554,"hi10y":0.312025},{"day":3071,"cif10y":0.051166,"lo10y":0.007269,"hi10y":0.31486},{"day":3161,"cif10y":0.050498,"lo10y":0.007,"hi10y":0.317669},{"day":3251,"cif10y":0.049857,"lo10y":0.006747,"hi10y":0.320453},{"day":3341,"cif10y":0.049239,"lo10y":0.006509,"hi10y":0.323211},{"day":3431,"cif10y":0.048644,"lo10y":0.006285,"hi10y":0.325943}],"CVT":[{"day":-366,"cif10y":0.542009,"lo10y":0.059421,"hi10y":0.999952},{"day":-336,"cif10y":0.541182,"lo10y":0.064878,"hi10y":0.999883},{"day":-306,"cif10y":0.540282,"lo10y":0.071258,"hi10y":0.999717},{"day":-276,"cif10y":0.539301,"lo10y":0.078779,"hi10y":0.999338},{"day":-246,"cif10y":0.53823,"lo10y":0.087716,"hi10y":0.998502},{"day":-216,"cif10y":0.537058,"lo10y":0.098405,"hi10y":0.996739},{"day":-186,"cif10y":0.53578,"lo10y":0.111225,"hi10y":0.993224},{"day":-156,"cif10y":0.534394,"lo10y":0.126504,"hi10y":0.986704},{"day":-126,"cif10y":0.532927,"lo10y":0.144167,"hi10y":0.975829},{"day":-96,"cif10y":0.531485,"lo10y":0.162663,"hi10y":0.96076},{"day":-66,"cif10y":0.53047,"lo10y":0.176062,"hi10y":0.947735},{"day":-36,"cif10y":0.53188,"lo10y":0.169831,"hi10y":0.954741},{"day":-30,"cif10y":0.53318,"lo10y":0.164823,"hi10y":0.960133},{"day":-29,"cif10y":0.533471,"lo10y":0.16388,"hi10y":0.961142},{"day":-28,"cif10y":0.533789,"lo10y":0.162911,"hi10y":0.962177},{"day":-27,"cif10y":0.534137,"lo10y":0.161921,"hi10y":0.963235},{"day":-26,"cif10y":0.534517,"lo10y":0.160913,"hi10y":0.964312},{"day":-25,"cif10y":0.534934,"lo10y":0.159893,"hi10y":0.965406},{"day":-24,"cif10y":0.535391,"lo10y":0.158865,"hi10y":0.966511},{"day":-23,"cif10y":0.535893,"lo10y":0.157838,"hi10y":0.967623},{"day":-22,"cif10y":0.536446,"lo10y":0.15682,"hi10y":0.968738},{"day":-21,"cif10y":0.537056,"lo10y":0.155821,"hi10y":0.969849},{"day":-20,"cif10y":0.53773,"lo10y":0.154852,"hi10y":0.970951},{"day":-19,"cif10y":0.538477,"lo10y":0.153931,"hi10y":0.972035},{"day":-18,"cif10y":0.539308,"lo10y":0.153074,"hi10y":0.973093},{"day":-17,"cif10y":0.540235,"lo10y":0.152307,"hi10y":0.974116},{"day":-16,"cif10y":0.541274,"lo10y":0.151656,"hi10y":0.975091},{"day":-15,"cif10y":0.542442,"lo10y":0.151161,"hi10y":0.976007},{"day":-14,"cif10y":0.543763,"lo10y":0.150869,"hi10y":0.976845},{"day":-13,"cif10y":0.545265,"lo10y":0.150842,"hi10y":0.977584},{"day":-12,"cif10y":0.546985,"lo10y":0.151166,"hi10y":0.978196},{"day":-11,"cif10y":0.548969,"lo10y":0.151955,"hi10y":0.978643},{"day":-10,"cif10y":0.551279,"lo10y":0.15337,"hi10y":0.97887},{"day":-9,"cif10y":0.553997,"lo10y":0.155645,"hi10y":0.978794},{"day":-8,"cif10y":0.557239,"lo10y":0.15913,"hi10y":0.978287},{"day":-7,"cif10y":0.561166,"lo10y":0.16437,"hi10y":0.977126},{"day":-6,"cif10y":0.566019,"lo10y":0.172272,"hi10y":0.974915},{"day":-5,"cif10y":0.572173,"lo10y":0.184433,"hi10y":0.970866},{"day":-4,"cif10y":0.580247,"lo10y":0.203942,"hi10y":0.963263},{"day":-3,"cif10y":0.591362,"lo10y":0.237493,"hi10y":0.947856},{"day":-2,"cif10y":0.607804,"lo10y":0.30191,"hi10y":0.912628},{"day":-1,"cif10y":0.63527,"lo10y":0.442537,"hi10y":0.824625},{"day":0,"cif10y":0.620679,"lo10y":0.49401,"hi10y":0.748265},{"day":1,"cif10y":0.479663,"lo10y":0.321899,"hi10y":0.666672},{"day":2,"cif10y":0.411455,"lo10y":0.226799,"hi10y":0.664621},{"day":3,"cif10y":0.369518,"lo10y":0.179561,"hi10y":0.658723},{"day":4,"cif10y":0.340432,"lo10y":0.151916,"hi10y":0.650453},{"day":5,"cif10y":0.318738,"lo10y":0.133858,"hi10y":0.641227},{"day":6,"cif10y":0.301749,"lo10y":0.121148,"hi10y":0.631746},{"day":7,"cif10y":0.287973,"lo10y":0.111712,"hi10y":0.622352},{"day":8,"cif10y":0.276504,"lo10y":0.10442,"hi10y":0.613212},{"day":9,"cif10y":0.26676,"lo10y":0.098608,"hi10y":0.604406},{"day":10,"cif10y":0.258343,"lo10y":0.09386,"hi10y":0.595969},{"day":11,"cif10y":0.250975,"lo10y":0.089902,"hi10y":0.587908},{"day":12,"cif10y":0.244453,"lo10y":0.086546,"hi10y":0.58022},{"day":13,"cif10y":0.238624,"lo10y":0.083661,"hi10y":0.572891},{"day":14,"cif10y":0.233372,"lo10y":0.08115,"hi10y":0.565907},{"day":15,"cif10y":0.228607,"lo10y":0.078941,"hi10y":0.559249},{"day":16,"cif10y":0.224256,"lo10y":0.07698,"hi10y":0.552901},{"day":17,"cif10y":0.220262,"lo10y":0.075224,"hi10y":0.546845},{"day":18,"cif10y":0.216578,"lo10y":0.073642,"hi10y":0.541063},{"day":19,"cif10y":0.213165,"lo10y":0.072206,"hi10y":0.535539},{"day":20,"cif10y":0.209992,"lo10y":0.070895,"hi10y":0.530259},{"day":21,"cif10y":0.207029,"lo10y":0.069692,"hi10y":0.525208},{"day":22,"cif10y":0.204256,"lo10y":0.068582,"hi10y":0.520373},{"day":23,"cif10y":0.201651,"lo10y":0.067555,"hi10y":0.515741},{"day":24,"cif10y":0.199199,"lo10y":0.066599,"hi10y":0.511301},{"day":25,"cif10y":0.196884,"lo10y":0.065706,"hi10y":0.507043},{"day":26,"cif10y":0.194695,"lo10y":0.06487,"hi10y":0.502956},{"day":27,"cif10y":0.192619,"lo10y":0.064084,"hi10y":0.499031},{"day":28,"cif10y":0.190647,"lo10y":0.063343,"hi10y":0.495259},{"day":29,"cif10y":0.188771,"lo10y":0.062643,"hi10y":0.491633},{"day":30,"cif10y":0.186982,"lo10y":0.061979,"hi10y":0.488144},{"day":31,"cif10y":0.185275,"lo10y":0.061348,"hi10y":0.484787},{"day":38,"cif10y":0.175148,"lo10y":0.057645,"hi10y":0.46445},{"day":45,"cif10y":0.16733,"lo10y":0.054785,"hi10y":0.448518},{"day":52,"cif10y":0.161041,"lo10y":0.052439,"hi10y":0.43584},{"day":59,"cif10y":0.155828,"lo10y":0.050436,"hi10y":0.425636},{"day":66,"cif10y":0.151408,"lo10y":0.048674,"hi10y":0.417354},{"day":73,"cif10y":0.147593,"lo10y":0.047094,"hi10y":0.410598},{"day":80,"cif10y":0.144252,"lo10y":0.045654,"hi10y":0.405069},{"day":87,"cif10y":0.14129,"lo10y":0.044329,"hi10y":0.400544},{"day":94,"cif10y":0.138639,"lo10y":0.043098,"hi10y":0.396847},{"day":101,"cif10y":0.136246,"lo10y":0.041948,"hi10y":0.393841},{"day":108,"cif10y":0.134069,"lo10y":0.040867,"hi10y":0.391417},{"day":115,"cif10y":0.132077,"lo10y":0.039848,"hi10y":0.389486},{"day":122,"cif10y":0.130244,"lo10y":0.038883,"hi10y":0.387977},{"day":129,"cif10y":0.128549,"lo10y":0.037968,"hi10y":0.38683},{"day":136,"cif10y":0.126974,"lo10y":0.037098,"hi10y":0.385996},{"day":143,"cif10y":0.125505,"lo10y":0.036269,"hi10y":0.385433},{"day":150,"cif10y":0.12413,"lo10y":0.035477,"hi10y":0.385107},{"day":157,"cif10y":0.122839,"lo10y":0.034721,"hi10y":0.384988},{"day":164,"cif10y":0.121624,"lo10y":0.033996,"hi10y":0.385051},{"day":171,"cif10y":0.120477,"lo10y":0.033302,"hi10y":0.385275},{"day":178,"cif10y":0.119391,"lo10y":0.032636,"hi10y":0.38564},{"day":181,"cif10y":0.118943,"lo10y":0.032359,"hi10y":0.385836},{"day":211,"cif10y":0.114947,"lo10y":0.029828,"hi10y":0.388839},{"day":241,"cif10y":0.111645,"lo10y":0.027664,"hi10y":0.393207},{"day":271,"cif10y":0.108847,"lo10y":0.025793,"hi10y":0.398427},{"day":301,"cif10y":0.10643,"lo10y":0.024158,"hi10y":0.40418},{"day":331,"cif10y":0.10431,"lo10y":0.022718,"hi10y":0.410263},{"day":361,"cif10y":0.102427,"lo10y":0.02144,"hi10y":0.416541},{"day":391,"cif10y":0.100737,"lo10y":0.020298,"hi10y":0.422923},{"day":421,"cif10y":0.099208,"lo10y":0.019271,"hi10y":0.429346},{"day":451,"cif10y":0.097812,"lo10y":0.018343,"hi10y":0.435766},{"day":481,"cif10y":0.096531,"lo10y":0.017501,"hi10y":0.442152},{"day":511,"cif10y":0.095349,"lo10y":0.016732,"hi10y":0.448482},{"day":541,"cif10y":0.094252,"lo10y":0.016028,"hi10y":0.454741},{"day":571,"cif10y":0.09323,"lo10y":0.015381,"hi10y":0.460917},{"day":601,"cif10y":0.092274,"lo10y":0.014785,"hi10y":0.467005},{"day":631,"cif10y":0.091376,"lo10y":0.014233,"hi10y":0.472997},{"day":661,"cif10y":0.090531,"lo10y":0.01372,"hi10y":0.478892},{"day":691,"cif10y":0.089732,"lo10y":0.013244,"hi10y":0.484688},{"day":721,"cif10y":0.088976,"lo10y":0.012799,"hi10y":0.490384},{"day":731,"cif10y":0.088733,"lo10y":0.012658,"hi10y":0.492261},{"day":821,"cif10y":0.086715,"lo10y":0.011512,"hi10y":0.508653},{"day":911,"cif10y":0.084956,"lo10y":0.010557,"hi10y":0.524178},{"day":1001,"cif10y":0.083399,"lo10y":0.009749,"hi10y":0.538884},{"day":1091,"cif10y":0.082005,"lo10y":0.009056,"hi10y":0.552822},{"day":1181,"cif10y":0.080746,"lo10y":0.008455,"hi10y":0.566046},{"day":1271,"cif10y":0.079598,"lo10y":0.007929,"hi10y":0.578607},{"day":1361,"cif10y":0.078545,"lo10y":0.007466,"hi10y":0.590551},{"day":1451,"cif10y":0.077573,"lo10y":0.007053,"hi10y":0.601923}]};
+function mortColor(et){
+  return et==="IS"?"#0071e3":et==="ICH"?"#c41e3a":et==="SAH"?"#8e44ad":"#138d75";
+}
+function mortFill(et){
+  return et==="IS"?"rgba(0,113,227,0.16)":et==="ICH"?"rgba(196,30,58,0.16)":et==="SAH"?"rgba(142,68,173,0.16)":"rgba(19,141,117,0.16)";
+}
+function mortName(et){
+  return et==="IS"?"Ischaemic stroke":et==="ICH"?"Intracerebral haemorrhage":et==="SAH"?"Subarachnoid haemorrhage":"Cerebral venous thrombosis";
+}
+function mortTx(day, et){
+  if(et==="CVT" && typeof tx==="function") return tx(day, "CVT");
+  return Math.log10(Math.max(0, day) + 1);
+}
+function buildMortalityPlot(){
+  const el=document.getElementById("mortPlot"); if(!el||!MORT[S.et]) return;
+  const rows=MORT[S.et], col=mortColor(S.et);
+  const xs=rows.map(r=>mortTx(r.day,S.et)), y=rows.map(r=>+(r.cif10y*100).toFixed(3)), lo=rows.map(r=>+(r.lo10y*100).toFixed(3)), hi=rows.map(r=>+(r.hi10y*100).toFixed(3));
+  const xTick=S.et==="CVT"?[-365,-180,-90,-30,0,30,180,365,730,1450]:[0,1,7,30,90,180,365,730,1810,3650];
+  const xText=S.et==="CVT"?["-1 yr","-6 m","-3 m","-30 d","0","30 d","6 m","1 yr","2 yr","~4 yr"]:["0","1","7","30 d","3 m","6 m","1 yr","2 yr","5 yr","10 yr"];
+  const xTickVals=xTick.map(d=>mortTx(d,S.et));
+  const xRange=S.et==="CVT"?[mortTx(-365,S.et)-0.01,mortTx(1450,S.et)+0.02]:[mortTx(0,S.et)-0.02,mortTx(3650,S.et)+0.03];
+  const maxY=Math.min(100, Math.max(45, Math.ceil(Math.max(...hi.filter(Number.isFinite), ...y.filter(Number.isFinite), 40)/10)*10));
+  const upper={x:xs,y:hi,type:"scatter",mode:"lines",line:{width:0},hoverinfo:"skip",showlegend:false,name:"95% CI upper"};
+  const lower={x:xs,y:lo,type:"scatter",mode:"lines",line:{width:0},fill:"tonexty",fillcolor:mortFill(S.et),hoverinfo:"skip",showlegend:false,name:"95% CI"};
+  const curve={x:xs,y:y,type:"scatter",mode:"lines",line:{color:col,width:2.5,shape:"spline",smoothing:0.45},name:S.et+" mortality CIF",customdata:rows.map(r=>r.day),hovertemplate:"<b>Day %{customdata}</b><br>10-year mortality %{y:.1f}%<extra></extra>"};
+  Plotly.react(el,[upper,lower,curve],{
+    title:{text:mortName(S.et)+" · 10-year all-cause mortality",font:{size:14,color:"#1d1d1f"}},
+    xaxis:{title:{text:S.et==="CVT"?"Day of first seizure relative to CVT diagnosis/index (signed log scale)":"Day of first seizure after stroke (log scale)",font:{size:12,color:"#6e6e73"}},tickvals:xTickVals,ticktext:xText,range:xRange,tickfont:{size:10,color:"#86868b"},gridcolor:"rgba(0,0,0,.04)",zerolinecolor:"rgba(0,0,0,.18)"},
+    yaxis:{title:{text:"10-year all-cause mortality CIF (%)",font:{size:12,color:"#6e6e73"}},range:[0,maxY],tickfont:{size:10,color:"#86868b"},gridcolor:"rgba(0,0,0,.05)"},
+    shapes:[{type:"line",xref:"paper",x0:0,x1:1,y0:40,y1:40,line:{color:"rgba(192,57,43,.45)",width:1,dash:"dash"}}],
+    annotations:[{xref:"paper",x:0.99,y:40,text:"<i>40%</i>",showarrow:false,xanchor:"right",yanchor:"bottom",font:{size:9,color:"rgba(192,57,43,.85)"},bgcolor:"rgba(255,255,255,.82)",borderpad:1}],
+    margin:{l:56,r:14,t:36,b:48},plot_bgcolor:"#fff",paper_bgcolor:"#fff",hovermode:"x unified",font:{family:"-apple-system,SF Pro Text,Helvetica Neue,Arial,sans-serif"}
+  },{responsive:true,displayModeBar:false});
+}
+function updateMortalityIfOpen(){const el=document.getElementById("mortContent"); if(el&&el.classList.contains("open")) buildMortalityPlot();}
+
+const SCORES = {
+  IS: {name:"SeLECT 2.0",desc:"12-item epilepsy risk score after IS (C-stat 0.77). Score \u2265 5 supports ASM discussion.",ref:"Sinka et al. JAMA Neurol 2023;80:605\u2013613",extra:["<b>SeLECT-EEG</b> \u2014 EEG biomarkers; C-stat 0.75: Schubert et al. Ann Neurol 2025","<b>SeLECT-ASyS</b> \u2014 acute symptomatic seizure model; C-stat 0.68\u20130.70: Schubert et al. Stroke 2025;56:1748\u20131757"]},
+  ICH: {name:"CAVE Score",desc:"4-item score for seizure risk after ICH (AUC 0.81). Score \u2265 2 indicates \u226510% 2-year risk.",ref:"Haapaniemi et al. Stroke 2014;45:1971\u20131976",extra:[]}
+};
+
+// Zone boundaries fixed from BIC trend — see PAPER_BOUNDS above
+const S = { et:"IS", day:14, hz_months:120 };
+
+function lx(d){ return Math.log10(d+1); }
+function dayTxt(d){
+  if(d===0) return "Stroke onset";
+  if(d<7) return `${d} day${d>1?'s':''} after stroke`;
+  if(d<60) return `Day ${d} (~${Math.round(d/7)} wk${Math.round(d/7)>1?'s':''})`;
+  if(d<365) return `Day ${d} (~${Math.round(d/30.4)} mo)`;
+  return `Day ${d} (~${(d/365.25).toFixed(1)} yr)`;
+}
+function rz(p10y){
+  if(p10y<31.6) return{lbl:"Low recurrence risk",cls:"zlo"};
+  if(p10y<60)   return{lbl:"Moderate recurrence risk",cls:"zmd"};
+  return{lbl:"High recurrence risk",cls:"zhi"};
+}
+function winOf(day,et){
+  const {hasGreen,acuteEnd,unclearEnd}=getWins(et);
+  if(hasGreen && acuteEnd!==null && day<=acuteEnd) return "acute";
+  if(unclearEnd===null||day<=unclearEnd) return "unclear";
+  return "remote";
+}
+function updSliderFill(el) {
+  const pct = ((parseFloat(el.value) - parseFloat(el.min)) / (parseFloat(el.max) - parseFloat(el.min))) * 100;
+  el.style.setProperty('--slider-pct', pct + '%');
+}
+
+// X-axis ticks — matches Figure 2 landmark spacing
+const TDYS=[0,1,7,30,90,180,365,730,1810];
+const TTXT=["0","1","7","30 d","3 m","6 m","1 yr","2 yr","5 yr"];
+
+function buildPlot(){
+  const {et,day,hz_months}=S;
+  const col = et==="IS"?"#0071e3":"#c41e3a";
+  const fill = et==="IS"?"rgba(0,113,227,0.06)":"rgba(196,30,58,0.06)";
+  const ys = cifAtMonths(et,hz_months).map(v=>+(v*100).toFixed(3));
+  const xs = CIF[et].days.map(lx);
+  const pt = +(interpAtMonths(day,et,hz_months)*100).toFixed(2);
+  const xpt = lx(day);
+  const maxY = et==="IS"?73:77;
+
+  const {hasGreen,acuteEnd,unclearEnd}=getWins(et);
+  const a0=lx(0), a3=lx(1811);
+  // a1 = start of yellow zone (= a0 if no green zone)
+  const a1 = hasGreen ? lx(acuteEnd+0.5) : a0;
+  const a2 = unclearEnd!==null ? lx(unclearEnd+0.5) : a3;
+
+  // ── Risk zone thresholds — consistent with Figure 2 & Figure 4 ───────────
+  const LHH15 = 100 * 1.5 / (19 * 0.25); // 31.58% — acute/intermediate boundary
+  const ILAE  = 60;                        // 60%    — ILAE epilepsy threshold
+  const xL = -0.04, xR = lx(1810) + 0.05;
+
+  const shapes=[
+    // ── Horizontal risk-zone backgrounds (below all traces) ──────────────────
+    {type:"rect",x0:xL,x1:xR,y0:0,     y1:LHH15,
+     fillcolor:"rgba(213,237,213,0.55)",line:{width:0},layer:"below"},
+    {type:"rect",x0:xL,x1:xR,y0:LHH15,y1:ILAE,
+     fillcolor:"rgba(254,242,220,0.55)",line:{width:0},layer:"below"},
+    {type:"rect",x0:xL,x1:xR,y0:ILAE,  y1:maxY,
+     fillcolor:"rgba(249,227,234,0.55)",line:{width:0},layer:"below"},
+    // ── Threshold lines ───────────────────────────────────────────────────────
+    {type:"line",x0:xL,x1:xR,y0:LHH15,y1:LHH15,
+     line:{color:"rgba(27,107,27,0.45)",width:1.1,dash:"dash"},layer:"below"},
+    {type:"line",x0:xL,x1:xR,y0:ILAE, y1:ILAE,
+     line:{color:"rgba(123,0,50,0.45)",width:1.1,dash:"dash"},layer:"below"},
+    // ── Selected-day drop line ────────────────────────────────────────────────
+    {type:"line",x0:xpt,x1:xpt,y0:0,y1:pt,
+     line:{color:"rgba(245,159,11,.50)",width:1.5,dash:"dot"}}
+  ];
+  // Vertical zone boundary lines (only where boundaries exist)
+  if(hasGreen){
+    shapes.push({type:"line",x0:a1,x1:a1,y0:0,y1:maxY,
+      line:{color:"rgba(13,71,161,0.26)",width:1,dash:"dot"}});
+  }
+  if(unclearEnd!==null){
+    shapes.push({type:"line",x0:a2,x1:a2,y0:0,y1:maxY,
+      line:{color:"rgba(123,0,50,0.25)",width:1,dash:"dot"}});
+  }
+
+  // ── Colored timing-window boxes below x-axis (paper coords) ──────────────
+  // Lower and slimmer so they do not collide with x-axis tick labels.
+  const bY0=-0.31, bY1=-0.20, bYc=-0.255;
+  if(hasGreen){
+    shapes.push({type:"rect",x0:a0,x1:a1,y0:bY0,y1:bY1,
+      xref:"x",yref:"paper",
+      fillcolor:"rgba(232,241,252,0.95)",line:{color:"rgba(13,71,161,0.45)",width:1}});
+  }
+  shapes.push({type:"rect",x0:a1,x1:(unclearEnd!==null?a2:a3+0.02),y0:bY0,y1:bY1,
+    xref:"x",yref:"paper",
+    fillcolor:"rgba(254,242,220,0.95)",line:{color:"rgba(179,89,0,0.45)",width:1}});
+  if(unclearEnd!==null){
+    shapes.push({type:"rect",x0:a2,x1:a3+0.02,y0:bY0,y1:bY1,
+      xref:"x",yref:"paper",
+      fillcolor:"rgba(249,227,234,0.95)",line:{color:"rgba(123,0,50,0.45)",width:1}});
+  }
+
+  // ── Threshold labels (right edge, with white bg to prevent curve overlap) ─
+  const xTxt = xR - 0.01;
+  const annots=[
+    {x:xTxt,y:LHH15+1.3,text:"<i>LHH\u2009=\u20091.5</i>",showarrow:false,
+     font:{size:9,color:"rgba(27,107,27,0.85)"},xanchor:"right",yanchor:"bottom",
+     bgcolor:"rgba(255,255,255,0.82)",borderpad:1},
+    {x:xTxt,y:ILAE+1.3, text:"<i>60%\u2009\u2014\u2009ILAE</i>",showarrow:false,
+     font:{size:9,color:"rgba(123,0,50,0.85)"},xanchor:"right",yanchor:"bottom",
+     bgcolor:"rgba(255,255,255,0.82)",borderpad:1},
+    // ── Zone band labels (left edge, subtle) ─────────────────────────────────
+    {x:xL+0.02,y:LHH15*0.50,
+     text:"<b>Low risk</b>",showarrow:false,
+     font:{size:9,color:"rgba(27,107,27,0.45)"},xanchor:"left",yanchor:"middle"},
+    {x:xL+0.02,y:(LHH15+ILAE)*0.50,
+     text:"<b>Moderate risk</b>",showarrow:false,
+     font:{size:9,color:"rgba(179,89,0,0.45)"},xanchor:"left",yanchor:"middle"}
+  ];
+  if(ILAE < maxY - 4){
+    annots.push({x:xL+0.02,y:(ILAE+maxY)*0.50,
+      text:"<b>High risk</b>",showarrow:false,
+      font:{size:9,color:"rgba(123,0,50,0.45)"},xanchor:"left",yanchor:"middle"});
+  }
+
+  // ── Timing window labels inside colored boxes ─────────────────────────────
+  const intStart = hasGreen ? acuteEnd+1 : 0;
+  if(hasGreen){
+    annots.push({x:(a0+a1)/2,y:bYc,xref:"x",yref:"paper",
+      text:`<b>Acute</b><br>0\u2013${acuteEnd}\u2009d`,
+      showarrow:false,font:{size:8,color:"#0d47a1"},
+      xanchor:"center",yanchor:"middle",bgcolor:"rgba(255,255,255,0)"});
+  }
+  if(unclearEnd!==null){
+    annots.push(
+      {x:(a1+a2)/2,y:bYc,xref:"x",yref:"paper",
+       text:`<b>Interm.</b><br>${intStart}\u2013${unclearEnd}\u2009d`,
+       showarrow:false,font:{size:8,color:"#B35900"},
+       xanchor:"center",yanchor:"middle",bgcolor:"rgba(255,255,255,0)"},
+      {x:(a2+a3)/2,y:bYc,xref:"x",yref:"paper",
+       text:`<b>Remote</b><br>\u2265\u2009${unclearEnd+1}\u2009d`,
+       showarrow:false,font:{size:8,color:"#7B0032"},
+       xanchor:"center",yanchor:"middle",bgcolor:"rgba(255,255,255,0)"}
+    );
+  } else {
+    annots.push({x:(a1+a3)/2,y:bYc,xref:"x",yref:"paper",
+      text:`<b>Interm. / Remote</b><br>${intStart}\u2009d+`,
+      showarrow:false,font:{size:8,color:"#B35900"},
+      xanchor:"center",yanchor:"middle",bgcolor:"rgba(255,255,255,0)"});
+  }
+
+  const hzLbl=hzLabel(hz_months);
+  const traceCurve={
+    x:xs,y:ys,type:"scatter",mode:"lines",
+    line:{color:col,width:2.5,shape:"spline",smoothing:0.5},
+    name:`${et} \u00b7 ${hzLbl}`,
+    hovertemplate:"<b>Day %{customdata}</b>  %{y:.1f}%<extra></extra>",
+    customdata:CIF[et].days
+  };
+  const tracePt={
+    x:[xpt],y:[pt],type:"scatter",mode:"markers+text",
+    marker:{color:"#f59f0b",size:11,symbol:"circle",line:{color:"white",width:2}},
+    text:[`${pt.toFixed(1)}%`],textposition:pt>maxY*0.7?"bottom right":"top right",
+    textfont:{color:"#b45309",size:12,family:"-apple-system,SF Pro Text,sans-serif"},
+    name:"Selected",showlegend:false,
+    hovertemplate:`<b>Day ${day}</b>  ${pt.toFixed(1)}%<extra></extra>`
+  };
+
+  const layout={
+    xaxis:{
+      title:{text:"Day of first seizure after stroke",font:{size:12,color:"#6e6e73"}},
+      tickvals:TDYS.map(lx),ticktext:TTXT,tickfont:{size:10,color:"#86868b"},
+      range:[-0.04,lx(1810)+0.05],
+      gridcolor:"rgba(0,0,0,.04)",zerolinecolor:"rgba(0,0,0,.06)",
+      showspikes:true,spikemode:"across",spikethickness:1,spikecolor:"rgba(0,0,0,.1)"
+    },
+    yaxis:{
+      title:{text:"Seizure recurrence risk (%)",font:{size:12,color:"#6e6e73"}},
+      tickvals:[0,20,40,60,80],ticktext:["0%","20%","40%","60%","80%"],
+      tickfont:{size:10,color:"#86868b"},
+      range:[0,maxY],gridcolor:"rgba(0,0,0,.05)"
+    },
+    shapes,annotations:annots,
+    legend:{orientation:"h",x:0.01,y:0.99,xanchor:"left",yanchor:"top",font:{size:11,color:"#6e6e73"},bgcolor:"rgba(255,255,255,.9)",borderwidth:0},
+    margin:{l:56,r:12,t:4,b:135},
+    plot_bgcolor:"#ffffff",paper_bgcolor:"#ffffff",
+    hovermode:"x unified",dragmode:false,
+    font:{family:"-apple-system,SF Pro Text,Helvetica Neue,Arial,sans-serif"}
+  };
+
+  Plotly.react("cifPlot",[traceCurve,tracePt],layout,
+    {responsive:true,displayModeBar:false});
+  attachClickHandler();
+}
+
+// ── Scrub ──
+let _scrubbing=false;
+(function(){
+  const p=document.getElementById("cifPlot");
+  function px2day(cx){
+    const bg=p.querySelector('.plotbg'); if(!bg) return S.day;
+    const r=bg.getBoundingClientRect(),xR=[-0.04,lx(1810)+0.05];
+    const f=Math.max(0,Math.min(1,(cx-r.left)/r.width));
+    return Math.max(0,Math.min(1810,Math.round(Math.pow(10,xR[0]+f*(xR[1]-xR[0]))-1)));
+  }
+  function go(cx){const d=px2day(cx);if(d!==S.day){S.day=d;document.getElementById("daySlider").value=d;document.getElementById("dayNum").value=d;updSliderFill(document.getElementById("daySlider"));setDay();}}
+  p.addEventListener('mousedown',function(e){if(!p.querySelector('.nsewdrag'))return;_scrubbing=true;go(e.clientX);e.preventDefault();});
+  window.addEventListener('mousemove',function(e){if(_scrubbing){go(e.clientX);e.preventDefault();}});
+  window.addEventListener('mouseup',function(){_scrubbing=false;});
+  p.addEventListener('touchstart',function(e){if(!p.querySelector('.nsewdrag'))return;_scrubbing=true;go(e.touches[0].clientX);e.preventDefault();},{passive:false});
+  window.addEventListener('touchmove',function(e){if(_scrubbing){go(e.touches[0].clientX);e.preventDefault();}},{passive:false});
+  window.addEventListener('touchend',function(){_scrubbing=false;});
+})();
+function attachClickHandler(){const d=document.getElementById("cifPlot").querySelector('.nsewdrag');if(d)d.style.cursor='crosshair';}
+
+// ── UI ──
+function updHzLabel(){const el=document.getElementById("hzDisp");el.textContent=hzLabel(S.hz_months);el.style.color=S.et==="IS"?"var(--is)":"var(--ich)";}
+function updRisk(){
+  const cif=interpAtMonths(S.day,S.et,S.hz_months),cif10y=interpAtMonths(S.day,S.et,120);
+  const pct=(cif*100).toFixed(1),pct10y=(cif10y*100).toFixed(1);
+  const {lbl,cls}=rz(cif10y*100);
+  document.getElementById("rPct").textContent=pct+"%";
+  document.getElementById("rLbl").innerHTML=`within ${hzLabel(S.hz_months)} \u00b7 day ${S.day}`+(S.hz_months!==120?`<br><span style="font-size:.85em;opacity:.6">(10-yr: ${pct10y}%)</span>`:"");
+  document.getElementById("rZne").textContent=lbl;
+  document.getElementById("riskBox").className="rbox "+cls;
+}
+function updWin(){
+  const {hasGreen,acuteEnd,unclearEnd}=getWins(S.et), wc=winOf(S.day,S.et);
+  const a0=lx(0),a3=lx(1811),tot=a3-a0;
+  const a1=hasGreen?lx(acuteEnd+0.5):a0;
+  const a2=unclearEnd!==null?lx(unclearEnd+0.5):a3;
+  let h='<div class="wstrip">';
+  if(hasGreen){
+    const f0=((a1-a0)/tot*100).toFixed(1);
+    h+=`<div class="wseg wa${wc==="acute"?" whi":""}" style="flex:${f0}">Acute<br>0\u2013${acuteEnd}d</div>`;
+  }
+  const f1=((a2-a1)/tot*100).toFixed(1);
+  const intStart=hasGreen?acuteEnd+1:0;
+  h+=`<div class="wseg wu${wc==="unclear"?" whi":""}" style="flex:${f1}">${unclearEnd!==null?`Interm.<br>${intStart}\u2013${unclearEnd}d`:`Interm.<br>${intStart}d+`}</div>`;
+  if(unclearEnd!==null){
+    const f2=((a3-a2)/tot*100).toFixed(1);
+    h+=`<div class="wseg wr${wc==="remote"?" whi":""}" style="flex:${f2}">Remote<br>\u2265${unclearEnd+1}d</div>`;
+  }
+  h+="</div>";
+  document.getElementById("wStrip").innerHTML=h;
+  const rs = riskSeg(S.day, S.et);
+  const note=`<b>Clinical time zones:</b> acute 0\u2013${acuteEnd}d; intermediate ${acuteEnd+1}\u2013${unclearEnd}d; remote \u2265${unclearEnd+1}d. These do not revert after first crossing.
+    <br><b>Risk categories:</b> ${riskSegSummary(S.et)}. Selected day ${S.day}: <b>${riskSegLabel(rs)}</b> risk category.`;
+  document.getElementById("wKey").innerHTML=`<div class="notebox">${note}</div>`;
+  const sumEl=document.getElementById("lhhSummary");
+  if(sumEl) sumEl.innerHTML=
+    `Clinical: acute/interm. <b>day&thinsp;${acuteEnd+1}</b>&nbsp;&middot;&nbsp;remote <b>day&thinsp;${unclearEnd+1}</b><br>`+
+    `Risk: ${riskSegSummary(S.et)}`;
+}
+function updDay(){
+  const el=document.getElementById("dayDisp");
+  el.innerHTML=`${S.day} <span>day${S.day!==1?"s":""}</span>`;
+  document.getElementById("dayCtx").textContent=dayTxt(S.day);
+  el.classList.remove('day-pop');void el.offsetWidth;el.classList.add('day-pop');
+}
+function updTitle(){
+  const n=S.et==="IS"?"Ischaemic Stroke":"Intracerebral Haemorrhage";
+  document.getElementById("ptitle").textContent=`${n} \u00b7 Seizure Recurrence Risk by Day of First Seizure`;
+}
+function updSubtitle(){document.getElementById("psubHz").textContent=hzLabel(S.hz_months);}
+function updMods(){
+  let h="",cat="";
+  MODS[S.et].forEach(m=>{
+    if(m.cat!==cat){h+=`<div class="mhdr">${m.cat}</div>`;cat=m.cat;}
+    const dc=m.sig==="ds"?"sds":m.sig==="s"?"ss":m.sig==="tr"?"str":"sns";
+    const dh=m.dir==="later"?`<span class="mdir dlater">Later recurrence</span>`:`<span class="mdir dearlier">Earlier recurrence</span>`;
+    h+=`<div class="mitem"><div class="mdot ${dc}"></div><div class="mname"><b>${m.name}</b><span style="color:var(--text3);font-size:11px;display:block">${m.note}</span></div>${dh}</div>`;
+  });
+  document.getElementById("modPanel").innerHTML=h;
+}
+function updScore(){
+  const s=SCORES[S.et],c=S.et==="IS"?"var(--is)":"var(--ich)";
+  let h=`<div style="font-size:14px;font-weight:600;color:${c};margin-bottom:4px">${s.name}</div><div style="font-size:12px;color:var(--text2);margin-bottom:6px">${s.desc}</div><div class="sref"><b>Reference:</b> ${s.ref}</div>`;
+  if(s.extra.length){h+=`<div style="margin-top:8px;font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">Related</div>`;s.extra.forEach(e=>{h+=`<div class="xmod">${e}</div>`;});}
+  document.getElementById("scorePanel").innerHTML=h;
+}
+function updEt(){
+  document.getElementById("btn-IS").className="etbtn"+(S.et==="IS"?" ais":"");
+  document.getElementById("btn-ICH").className="etbtn"+(S.et==="ICH"?" aich":"");
+  document.documentElement.style.setProperty('--hz-accent',S.et==="IS"?"var(--is)":"var(--ich)");
+}
+function updHz(){const el=document.getElementById("hzSlider");if(el){el.value=S.hz_months;updSliderFill(el);}updHzLabel();}
+function updAll(){
+  updEt();updHz();updDay();updRisk();updWin();updTitle();updSubtitle();updMods();updScore();
+  updSliderFill(document.getElementById("hzSlider"));
+  updSliderFill(document.getElementById("daySlider"));
+  buildPlot();updateMortalityIfOpen();
+}
+
+function setET(et){S.et=et;updAll();}
+function onHzSlider(v){S.hz_months=parseInt(v,10);updSliderFill(document.getElementById("hzSlider"));updHzLabel();updRisk();updTitle();updSubtitle();updWin();buildPlot();updateMortalityIfOpen();}
+function setDay(){updDay();updRisk();updWin();buildPlot();updateMortalityIfOpen();}
+function onSlider(v){S.day=parseInt(v,10);document.getElementById("dayNum").value=S.day;updSliderFill(document.getElementById("daySlider"));setDay();}
+function onNum(v){let d=parseInt(v,10);if(isNaN(d))return;d=Math.max(0,Math.min(1810,d));S.day=d;document.getElementById("daySlider").value=d;updSliderFill(document.getElementById("daySlider"));setDay();}
+function toggleX(id,arrId){const el=document.getElementById(id);const open=el.classList.toggle('open');document.getElementById(arrId).innerHTML=open?'\u25B2':'\u25BC';if(open&&id==='mortContent')buildMortalityPlot();}
+
+// ── LHH handler (kept for compatibility; zones now fixed via PAPER_BOUNDS) ───
+function onLHH(v){ updWin(); buildPlot(); }
+
+// ── Info modal ────────────────────────────────────────────────────────────────
+function openInfo(){
+  document.getElementById("infoOverlay").style.display = "block";
+  document.getElementById("infoModal").style.display   = "block";
+}
+function closeInfo(){
+  document.getElementById("infoOverlay").style.display = "none";
+  document.getElementById("infoModal").style.display   = "none";
+}
+
+document.addEventListener("DOMContentLoaded",updAll);
+</script>
+</body>
+</html>
